@@ -96,9 +96,16 @@ def obter_meta_mensal(
         total = 0.0
         for grupo in grupos:
             linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
-            if grupo == "IP" and linhas_grupo.empty:
+            if linhas_grupo.empty:
+                padrao = {
+                    "A": r"\bAT\b|GRUPO A",
+                    "B": r"\bBT\b|GRUPO B",
+                    "IP": r"\bIP\b",
+                }.get(grupo, r"a^")
                 linhas_grupo = linhas_mes[
-                    linhas_mes["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)
+                    linhas_mes["TIPO DA META"].str.contains(
+                        padrao, regex=True, na=False
+                    )
                 ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
@@ -112,6 +119,7 @@ def tema(fig, altura: int = 400):
         margin=dict(l=15, r=20, t=90, b=35),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
         legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom"),
+        legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
     fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
