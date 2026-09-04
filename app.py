@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from calendar import monthrange
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -173,8 +175,12 @@ def tema_figura(fig: go.Figure, altura: int = 390) -> go.Figure:
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
-        margin=dict(l=12, r=12, t=50, b=20),
-        legend=dict(orientation="h", y=1.12, x=0),
+        margin=dict(l=12, r=12, t=92, b=28),
+        title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
+        legend=dict(
+            orientation="h", y=1.03, x=0, yanchor="bottom", xanchor="left",
+            bgcolor="rgba(0,0,0,0)",
+        ),
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
     fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
@@ -245,6 +251,18 @@ with st.sidebar:
         index=len(meses_disponiveis) - 1,
         format_func=lambda x: MESES[x].title(),
     )
+    datas_mes = producao.loc[
+        producao["MES_NUM"].eq(mes), "DT_CONCLUSAO_DATA"
+    ].dropna()
+    primeiro_dia_mes = pd.Timestamp(2026, mes, 1).date()
+    ultimo_dia_mes = pd.Timestamp(2026, mes, monthrange(2026, mes)[1]).date()
+    periodo = st.date_input(
+        "Período por data",
+        value=(primeiro_dia_mes, ultimo_dia_mes),
+        min_value=primeiro_dia_mes,
+        max_value=ultimo_dia_mes,
+        format="DD/MM/YYYY",
+    )
     grupos_disponiveis = ["A", "B"]
     grupos = st.multiselect("Grupo", grupos_disponiveis, default=grupos_disponiveis)
 
@@ -271,6 +289,14 @@ filtro = (
     & producao["MES_NUM"].eq(mes)
     & producao["GRUPO_PAINEL"].isin(grupos)
 )
+if isinstance(periodo, (tuple, list)):
+    data_inicio = periodo[0]
+    data_fim = periodo[-1] if len(periodo) > 1 else periodo[0]
+else:
+    data_inicio = data_fim = periodo
+data_inicio_ts = pd.Timestamp(data_inicio)
+data_fim_ts = pd.Timestamp(data_fim) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+filtro &= producao["DT_CONCLUSAO_DATA"].between(data_inicio_ts, data_fim_ts)
 if projetos:
     filtro &= producao["projeto_perdas"].isin(projetos)
 else:
@@ -284,13 +310,20 @@ df = producao.loc[filtro].copy()
 st.markdown('<div class="eyebrow">VISÃO DE PRODUÇÃO</div>', unsafe_allow_html=True)
 st.markdown('<div class="page-title">Desempenho operacional</div>', unsafe_allow_html=True)
 st.markdown(
-    f'<div class="subtitle">{MESES[mes].title()} de 2026 · '
+    f'<div class="subtitle">{data_inicio:%d/%m/%Y} a {data_fim:%d/%m/%Y} · '
     f'{", ".join(regionais) if regionais else "Nenhuma regional"} · '
     f'{len(df):,} registros filtrados</div>',
     unsafe_allow_html=True,
 )
 
-metas_filtro = obter_metas(metas, regionais, grupos, [mes], projetos)
+metas_mensais = obter_metas(metas, regionais, grupos, [mes], projetos)
+dias_selecionados = (data_fim - data_inicio).days + 1
+dias_no_mes = monthrange(2026, mes)[1]
+fator_periodo = max(0, min(dias_selecionados / dias_no_mes, 1))
+metas_filtro = {
+    indicador: valor * fator_periodo
+    for indicador, valor in metas_mensais.items()
+}
 realizados = {indicador: float(df[indicador].sum()) for indicador in INDICADORES}
 
 colunas = st.columns(4)
@@ -344,13 +377,13 @@ with graf2:
             "Não executado": "#F87171",
         },
     )
-    fig.update_traces(textinfo="percent+label")
+    fig.update_traces(textinfo="percent+label+value")
     st.plotly_chart(tema_figura(fig), width="stretch")
 
 df["DIA"] = df["DT_CONCLUSAO_DATA"].dt.day
 diario = (
     df.groupby("DIA", as_index=False)[
-        ["FISCALIZACAO", "COM_IRREGULARIDADE", "SEM_IRREGULARIDADE", "NAO_EXECUTADO"]
+        ["FISCALIZACAO", "FRAUDE", "COM_IRREGULARIDADE", "SEM_IRREGULARIDADE", "NAO_EXECUTADO"]
     ].sum()
 )
 if not diario.empty:
@@ -358,23 +391,16 @@ if not diario.empty:
         diario["COM_IRREGULARIDADE"]
         .div(diario["FISCALIZACAO"].replace(0, pd.NA)).mul(100).fillna(0)
     )
-    diario["FISC_ACUMULADA"] = diario["FISCALIZACAO"].cumsum()
-    meta_fisc = metas_filtro["FISCALIZACAO"]
-    ultimo_dia = int(diario["DIA"].max())
-    diario["RITMO_META"] = diario["DIA"] / max(ultimo_dia, 1) * meta_fisc
-
     g1, g2 = st.columns([1.15, .85])
     with g1:
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=diario["DIA"], y=diario["FISC_ACUMULADA"], name="Real acumulado",
-            mode="lines+markers", line=dict(color="#38BDF8", width=3),
+            x=diario["DIA"], y=diario["FRAUDE"], name="Fraudes",
+            mode="lines+markers+text", line=dict(color="#F59E0B", width=3),
+            marker=dict(size=8), text=diario["FRAUDE"],
+            texttemplate="%{text:,.0f}", textposition="top center",
         ))
-        fig.add_trace(go.Scatter(
-            x=diario["DIA"], y=diario["RITMO_META"], name="Ritmo da meta",
-            mode="lines", line=dict(color="#F59E0B", width=2, dash="dash"),
-        ))
-        fig.update_layout(title="Evolução acumulada da fiscalização")
+        fig.update_layout(title="Evolução mensal de fraudes")
         st.plotly_chart(tema_figura(fig), width="stretch")
     with g2:
         fig = px.line(
@@ -382,6 +408,10 @@ if not diario.empty:
             title="Assertividade diária",
         )
         fig.update_traces(line_color="#34D399", line_width=3)
+        fig.update_traces(
+            mode="lines+markers+text", text=diario["ASSERTIVIDADE"],
+            texttemplate="%{text:.1f}%", textposition="top center"
+        )
         fig.update_yaxes(ticksuffix="%", range=[0, max(100, diario["ASSERTIVIDADE"].max() * 1.15)])
         st.plotly_chart(tema_figura(fig), width="stretch")
 
@@ -398,7 +428,31 @@ if not equipe.empty:
         equipe_longa, x="Equipe", y="Quantidade", color="Indicador",
         title="Produção por equipe", barmode="group",
         color_discrete_map=CORES,
+        text="Quantidade",
     )
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+    qtd_equipes = max(len(equipe), 1)
+    simbolos_meta = {
+        "FISCALIZACAO": "circle", "NORMALIZACAO": "diamond",
+        "FRAUDE": "square", "DEFEITO": "triangle-up",
+    }
+    for indicador in INDICADORES:
+        rotulo = ROTULOS[indicador]
+        meta_por_equipe = metas_filtro[indicador] / qtd_equipes
+        fig.add_trace(go.Scatter(
+            x=equipe["Equipe"],
+            y=[meta_por_equipe] * len(equipe),
+            mode="markers+text",
+            name=f"Meta {rotulo}",
+            marker=dict(
+                color=CORES[rotulo], size=11, symbol=simbolos_meta[indicador],
+                line=dict(color="#FFFFFF", width=1),
+            ),
+            text=[meta_por_equipe] * len(equipe),
+            texttemplate="%{text:,.0f}",
+            textposition="top center",
+            hovertemplate=f"Meta proporcional {rotulo}: %{{y:,.1f}}<extra></extra>",
+        ))
     st.plotly_chart(tema_figura(fig, 430), width="stretch")
 
 c1, c2 = st.columns(2)
@@ -410,7 +464,9 @@ with c1:
     fig = px.bar(
         projetos_graf, x="FISCALIZACAO", y="projeto_perdas", orientation="h",
         title="Fiscalizações por projeto", color_discrete_sequence=["#38BDF8"],
+        text="FISCALIZACAO",
     )
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
     st.plotly_chart(tema_figura(fig), width="stretch")
 with c2:
     motivos = (
@@ -423,7 +479,9 @@ with c2:
         motivos, x="Quantidade", y="Motivo", orientation="h",
         title="Principais motivos de não execução",
         color_discrete_sequence=["#F87171"],
+        text="Quantidade",
     )
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
     st.plotly_chart(tema_figura(fig), width="stretch")
 
 with st.expander("Consultar produção detalhada"):
@@ -444,6 +502,7 @@ with st.expander("Consultar produção detalhada"):
     )
 
 st.caption(
+    f"Dados atualizados em: {datetime.fromtimestamp(ARQ_PRODUCAO.stat().st_mtime):%d/%m/%Y às %H:%M} · "
     "Fonte: ODS de produção · Data de referência: DT_CONCLUSAO · "
     "Rio Verde e Morrinhos definidos pela coluna POLO."
 )
