@@ -95,18 +95,16 @@ def obter_meta_mensal(
         linhas_mes = base[base["MES_NUM_META"].eq(mes)]
         total = 0.0
         for grupo in grupos:
-            linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
-            if linhas_grupo.empty:
-                padrao = {
-                    "A": r"\bAT\b|GRUPO A",
-                    "B": r"\bBT\b|GRUPO B",
-                    "IP": r"\bIP\b",
-                }.get(grupo, r"a^")
-                linhas_grupo = linhas_mes[
-                    linhas_mes["TIPO DA META"].str.contains(
-                        padrao, regex=True, na=False
-                    )
-                ]
+            tipo_exato = {
+                "A": "INCREMENTO AT",
+                "B": "INCREMENTO BT",
+                "IP": "INCREMENTO IP",
+            }.get(grupo, "")
+            linhas_grupo = linhas_mes[
+                linhas_mes["TIPO DA META"].isin(
+                    {tipo_exato, f"META {tipo_exato}"}
+                )
+            ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
     return saida
@@ -166,15 +164,13 @@ with st.sidebar:
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
     meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
-    projetos_disp = sorted(base["PROJETO_N"].dropna().unique())
-    projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
     if st.button("Atualizar leitura das bases", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
 filtro = (
     base["REGIONAL_N"].isin(regionais) & base["GRUPO_N"].isin(grupos)
-    & base["REF_MES"].isin(meses) & base["PROJETO_N"].isin(projetos)
+    & base["REF_MES"].isin(meses)
 )
 df = base.loc[filtro].copy()
 incremento = df[df["TIPO_GANHO"].eq("Incremento")].copy()
