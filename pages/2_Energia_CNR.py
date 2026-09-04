@@ -208,6 +208,10 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.button("⚡ Energia CNR", disabled=True, width="stretch")
+    st.page_link(
+        "pages/3_Incremento.py", label="Incremento", icon="📈",
+        width="stretch",
+    )
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
