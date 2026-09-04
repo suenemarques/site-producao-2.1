@@ -461,7 +461,8 @@ if not equipe.empty:
             y=meta_por_equipe, row=linha, col=coluna_grafico,
             line_color=CORES[rotulo], line_width=3, line_dash="dash",
             annotation_text=f"Meta {meta_por_equipe:,.0f}",
-            annotation_position="top right",
+            annotation_position="top left",
+            annotation_xshift=8,
             annotation_font_color=CORES[rotulo],
         )
         limite = max(float(realizado_equipe.max()), meta_por_equipe, 1) * 1.28
