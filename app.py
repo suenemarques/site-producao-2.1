@@ -196,6 +196,7 @@ st.markdown(
     <style>
     .stApp {background: #07111F; color: #E8EEF6;}
     [data-testid="stSidebar"] {background: #0B1728; border-right: 1px solid #1E3047;}
+    [data-testid="stSidebarNav"] {display:none;}
     [data-testid="stHeader"] {background: rgba(7,17,31,.82);}
     h1, h2, h3 {letter-spacing: -.035em;}
     .block-container {padding-top: 1.6rem; max-width: 1550px;}
