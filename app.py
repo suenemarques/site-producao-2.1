@@ -242,6 +242,8 @@ if not meses_disponiveis:
 with st.sidebar:
     st.markdown("### ⚡ Produção 2.0")
     st.caption("Recuperação de Energia · Sul")
+    st.page_link("app.py", label="Produção", icon="📊")
+    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡")
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
