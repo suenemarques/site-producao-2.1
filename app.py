@@ -360,14 +360,15 @@ graf1, graf2 = st.columns([1.08, .92])
 with graf1:
     comparativo = pd.DataFrame({
         "Indicador": [ROTULOS[i] for i in INDICADORES] * 2,
-        "Tipo": ["Realizado"] * 4 + ["Meta"] * 4,
-        "Quantidade": [realizados[i] for i in INDICADORES]
-        + [metas_filtro[i] for i in INDICADORES],
+        "Tipo": ["Meta"] * 4 + ["Realizado"] * 4,
+        "Quantidade": [metas_filtro[i] for i in INDICADORES]
+        + [realizados[i] for i in INDICADORES],
     })
     fig = px.bar(
         comparativo, x="Indicador", y="Quantidade", color="Tipo", barmode="group",
         title="Meta x realizado",
         color_discrete_map={"Realizado": "#38BDF8", "Meta": "#52657B"},
+        category_orders={"Tipo": ["Meta", "Realizado"]},
         text_auto=",.0f",
     )
     fig.update_traces(textposition="outside", cliponaxis=False)
