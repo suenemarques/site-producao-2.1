@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 
@@ -419,45 +420,56 @@ equipe = (
     .sum().rename(columns={"PRX_DESCRICAO": "Equipe"})
 )
 if not equipe.empty:
-    equipe_longa = equipe.melt(
-        id_vars="Equipe", var_name="Indicador", value_name="Quantidade"
-    )
-    equipe_longa["Indicador"] = equipe_longa["Indicador"].map(ROTULOS)
-    fig = px.bar(
-        equipe_longa, x="Equipe", y="Quantidade", color="Indicador",
-        title="Produção por equipe", barmode="group",
-        color_discrete_map=CORES,
-        text="Quantidade",
-    )
-    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
     qtd_equipes = max(len(equipe), 1)
+    posicoes = {
+        "FISCALIZACAO": (1, 1), "NORMALIZACAO": (1, 2),
+        "FRAUDE": (2, 1), "DEFEITO": (2, 2),
+    }
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[ROTULOS[i] for i in INDICADORES],
+        vertical_spacing=.18, horizontal_spacing=.09,
+    )
     for indicador in INDICADORES:
+        linha, coluna_grafico = posicoes[indicador]
         rotulo = ROTULOS[indicador]
         meta_por_equipe = metas_filtro[indicador] / qtd_equipes
         realizado_equipe = equipe[indicador].astype(float)
-        situacoes = [
-            "Acima ou dentro da meta" if valor >= meta_por_equipe else "Abaixo da meta"
+        cores_barras = [
+            "#34D399" if meta_por_equipe > 0 and valor >= meta_por_equipe
+            else CORES[rotulo]
             for valor in realizado_equipe
         ]
-        fig.add_trace(go.Scatter(
+        situacoes = ["Meta atingida" if valor >= meta_por_equipe else "Abaixo da meta"
+                     for valor in realizado_equipe]
+        fig.add_trace(go.Bar(
             x=equipe["Equipe"],
-            y=[meta_por_equipe] * len(equipe),
-            mode="markers+text",
-            name=f"Meta {rotulo}",
-            marker=dict(
-                color=CORES[rotulo], size=30, symbol="line-ew",
-                line=dict(color=CORES[rotulo], width=5),
-            ),
-            text=[meta_por_equipe] * len(equipe),
-            texttemplate="Meta %{text:,.0f}",
-            textposition="top center",
+            y=realizado_equipe,
+            name=rotulo,
+            marker_color=cores_barras,
+            text=realizado_equipe,
+            texttemplate="%{text:,.0f}", textposition="outside",
             customdata=situacoes,
             hovertemplate=(
-                f"Meta proporcional {rotulo}: %{{y:,.1f}}<br>"
+                "Equipe: %{x}<br>Realizado: %{y:,.0f}<br>"
+                f"Meta proporcional: {meta_por_equipe:,.1f}<br>"
                 "Situação: %{customdata}<extra></extra>"
             ),
-        ))
-    st.plotly_chart(tema_figura(fig, 430), width="stretch")
+            showlegend=False,
+        ), row=linha, col=coluna_grafico)
+        fig.add_hline(
+            y=meta_por_equipe, row=linha, col=coluna_grafico,
+            line_color=CORES[rotulo], line_width=3, line_dash="dash",
+            annotation_text=f"Meta {meta_por_equipe:,.0f}",
+            annotation_position="top right",
+            annotation_font_color=CORES[rotulo],
+        )
+        limite = max(float(realizado_equipe.max()), meta_por_equipe, 1) * 1.28
+        fig.update_yaxes(range=[0, limite], row=linha, col=coluna_grafico)
+
+    fig.update_layout(title="Produção por equipe", showlegend=False)
+    fig.update_xaxes(tickangle=-25)
+    st.plotly_chart(tema_figura(fig, 680), width="stretch")
 
 c1, c2 = st.columns(2)
 with c1:
