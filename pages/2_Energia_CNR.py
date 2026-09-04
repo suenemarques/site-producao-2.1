@@ -71,6 +71,14 @@ def formatar_mwh(valor: float) -> str:
     return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " MWh"
 
 
+def formatar_inteiro(valor: float | int) -> str:
+    return f"{valor:,.0f}".replace(",", ".")
+
+
+def formatar_percentual(valor: float) -> str:
+    return f"{valor:.1f}".replace(".", ",") + "%"
+
+
 def pontos_selecionados(evento) -> list[dict]:
     try:
         return list(evento.selection.points)
@@ -168,6 +176,7 @@ st.markdown("""
 <style>
 .stApp {background:#07111F;color:#E8EEF6}
 [data-testid="stSidebar"] {background:#0B1728;border-right:1px solid #1E3047}
+[data-testid="stSidebarNav"] {display:none}
 .block-container {padding-top:1.5rem;max-width:1550px}
 .eyebrow {color:#38BDF8;font-size:.78rem;font-weight:800;letter-spacing:.14em}
 .page-title {font-size:2.1rem;font-weight:800;margin:.18rem 0 0}
@@ -237,8 +246,9 @@ if not cancelados.empty:
     ultimo_mes_cancelado = int(cancelados["FISCAL_CICLO_STATUS_MES"].max())
     recentes = cancelados[cancelados["FISCAL_CICLO_STATUS_MES"].eq(ultimo_mes_cancelado)]
     st.warning(
-        f"⚠️ Alerta de cancelamento: {recentes['INSPECAO_ID'].nunique():,.0f} SS e "
-        f"{recentes['CNR_ENERGIA'].abs().sum() / 1000:,.2f} MWh cancelados em "
+        f"⚠️ Alerta de cancelamento: "
+        f"{formatar_inteiro(recentes['INSPECAO_ID'].nunique())} SS e "
+        f"{formatar_mwh(recentes['CNR_ENERGIA'].abs().sum() / 1000)} cancelados em "
         f"{MESES[ultimo_mes_cancelado].title()}."
     )
     with st.expander("Ver cancelamentos do alerta"):
@@ -265,12 +275,12 @@ taxa_cancelamento = qtd_cancelados / qtd_processos * 100 if qtd_processos else 0
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Real CNR", energia_mwh(energia_real_mwh), help="Faturado menos cancelado")
 k2.metric("Meta CNR", energia_mwh(meta_total))
-k3.metric("Atingimento", f"{energia_real_mwh / meta_total * 100:.1f}%" if meta_total else "Sem meta")
+k3.metric("Atingimento", formatar_percentual(energia_real_mwh / meta_total * 100) if meta_total else "Sem meta")
 k4.metric("Ticket médio", energia_mwh(ticket_mwh))
 k5, k6, k7 = st.columns(3)
-k5.metric("SS calculadas", f"{qtd_calculadas:,.0f}")
-k6.metric("SS canceladas", f"{qtd_cancelados:,.0f}")
-k7.metric("Taxa cancelamento", f"{taxa_cancelamento:.1f}%")
+k5.metric("SS calculadas", formatar_inteiro(qtd_calculadas))
+k6.metric("SS canceladas", formatar_inteiro(qtd_cancelados))
+k7.metric("Taxa cancelamento", formatar_percentual(taxa_cancelamento))
 
 if meta_total == 0:
     st.info(
@@ -407,7 +417,7 @@ colunas = [
     "TIPO_IRREGULARIDADE_TOI", "TIPOLIGACAO", "MOTIVO_CANCELAMENTO_DESCRICAO",
     "PROJETO_PERDA", "ARQUIVO_ORIGEM", "ATUALIZADO_EM",
 ]
-colunas = [c for c in colunas if c in df.columns]
+colunas = [c for c in colunas if c in validacao_df.columns]
 validacao = validacao_df[colunas].sort_values("CNR_ENERGIA_MWH", ascending=False)
 st.dataframe(validacao, width="stretch", hide_index=True, height=450)
 st.download_button(
