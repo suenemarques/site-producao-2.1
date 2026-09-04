@@ -135,6 +135,8 @@ except Exception as erro:
 with st.sidebar:
     st.markdown("### ⚡ Energia CNR")
     st.caption("Recuperação de Energia · Sul")
+    st.page_link("app.py", label="Produção", icon="📊")
+    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡")
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
