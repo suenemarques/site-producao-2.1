@@ -181,6 +181,13 @@ st.markdown("""
 .eyebrow {color:#38BDF8;font-size:.78rem;font-weight:800;letter-spacing:.14em}
 .page-title {font-size:2.1rem;font-weight:800;margin:.18rem 0 0}
 .subtitle {color:#8FA2B8;margin-bottom:1rem}
+.nav-producao {
+  display:block; width:100%; box-sizing:border-box; padding:.55rem .8rem;
+  margin:.25rem 0; border:1px solid #46556A; border-radius:.5rem;
+  color:#FFFFFF !important; background:#172235; text-align:center;
+  text-decoration:none !important; font-weight:600;
+}
+.nav-producao:hover {border-color:#FFFFFF;background:#223149}
 div[data-testid="stPlotlyChart"] {background:#0B1728;border:1px solid #1E3047;border-radius:16px;padding:.25rem .55rem}
 div[data-testid="stMetric"] {background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:1rem}
 </style>
@@ -196,7 +203,10 @@ except Exception as erro:
 with st.sidebar:
     st.markdown("### ⚡ Energia CNR")
     st.caption("Recuperação de Energia · Sul")
-    st.link_button("📊 Produção", "/", width="stretch")
+    st.markdown(
+        '<a class="nav-producao" href="/" target="_self">📊 Produção</a>',
+        unsafe_allow_html=True,
+    )
     st.button("⚡ Energia CNR", disabled=True, width="stretch")
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
