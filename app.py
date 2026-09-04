@@ -24,6 +24,7 @@ st.set_page_config(
 BASE_DIR = Path(__file__).resolve().parent
 ARQ_PRODUCAO = BASE_DIR / "dados" / "producao_2026.parquet"
 ARQ_METAS = BASE_DIR / "METAS 2026.xlsx"
+PAGINA_CNR = BASE_DIR / "pages" / "2_Energia_CNR.py"
 
 MESES = {
     1: "JANEIRO", 2: "FEVEREIRO", 3: "MARÇO", 4: "ABRIL",
@@ -242,6 +243,16 @@ if not meses_disponiveis:
 with st.sidebar:
     st.markdown("### ⚡ Produção 2.0")
     st.caption("Recuperação de Energia · Sul")
+    st.button("📊 Produção", disabled=True, width="stretch")
+    if PAGINA_CNR.is_file():
+        st.page_link(
+            "pages/2_Energia_CNR.py",
+            label="Energia CNR",
+            icon="⚡",
+            width="stretch",
+        )
+    else:
+        st.warning("Página CNR não encontrada em pages/2_Energia_CNR.py")
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
