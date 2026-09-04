@@ -25,6 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent
 ARQ_PRODUCAO = BASE_DIR / "dados" / "producao_2026.parquet"
 ARQ_METAS = BASE_DIR / "METAS 2026.xlsx"
 PAGINA_CNR = BASE_DIR / "pages" / "2_Energia_CNR.py"
+PAGINA_INCREMENTO = BASE_DIR / "pages" / "3_Incremento.py"
 
 MESES = {
     1: "JANEIRO", 2: "FEVEREIRO", 3: "MARÇO", 4: "ABRIL",
@@ -254,6 +255,10 @@ with st.sidebar:
         )
     else:
         st.warning("Página CNR não encontrada em pages/2_Energia_CNR.py")
+    st.page_link(
+        "pages/3_Incremento.py", label="Incremento", icon="📈",
+        width="stretch",
+    )
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
