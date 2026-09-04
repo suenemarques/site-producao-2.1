@@ -161,6 +161,7 @@ def tema(fig, altura: int = 390):
         margin=dict(l=15, r=20, t=90, b=35),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
         legend=dict(orientation="h", y=1.03, x=0, yanchor="bottom"),
+        legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
     fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
