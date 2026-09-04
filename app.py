@@ -185,6 +185,7 @@ def tema_figura(fig: go.Figure, altura: int = 390) -> go.Figure:
             orientation="h", y=1.03, x=0, yanchor="bottom", xanchor="left",
             bgcolor="rgba(0,0,0,0)",
         ),
+        legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
     fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
