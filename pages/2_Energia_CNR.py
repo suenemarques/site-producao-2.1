@@ -56,6 +56,21 @@ def resumir_motivo(valor: object) -> str:
     return str(valor).strip() if str(valor).strip() else "Não informado"
 
 
+def resumir_ligacao(valor: object) -> str:
+    ligacao = normalizar(valor)
+    if "MONOFAS" in ligacao:
+        return "Monofásico"
+    if "BIFAS" in ligacao:
+        return "Bifásico"
+    if "TRIFAS" in ligacao:
+        return "Trifásico"
+    return str(valor).strip().title() if str(valor).strip() else "Não informado"
+
+
+def formatar_mwh(valor: float) -> str:
+    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " MWh"
+
+
 def pontos_selecionados(evento) -> list[dict]:
     try:
         return list(evento.selection.points)
@@ -82,7 +97,10 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     cnr["STATUS_ROTULO"] = cnr["STATUS_CNR_EQTL"].map(rotulo_status)
     cnr["PROJETO"] = cnr["PROJETO_PERDA"].fillna("Não informado").replace("", "Não informado")
     cnr["IRREGULARIDADE"] = cnr["TIPO_IRREGULARIDADE_TOI"].fillna("Não informado").replace("", "Não informado")
-    cnr["LIGACAO"] = cnr["TIPOLIGACAO"].fillna("Não informado").replace("", "Não informado")
+    cnr["LIGACAO"] = (
+        cnr["TIPOLIGACAO"].fillna("Não informado").replace("", "Não informado")
+        .map(resumir_ligacao)
+    )
     cnr["MOTIVO"] = cnr["MOTIVO_CANCELAMENTO_DESCRICAO"].fillna("Não informado").replace("", "Não informado")
     cnr["MOTIVO_RESUMIDO"] = cnr["MOTIVO"].map(resumir_motivo)
     cnr["MES_NOME"] = cnr["FISCAL_CICLO_STATUS_MES"].map(MESES)
@@ -123,7 +141,8 @@ def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses
         else:
             por_tipo = base[base["TIPO DA META"].str.contains(r"\bBT\b|GRUPO B", regex=True, na=False)]
         linhas = por_coluna if not por_coluna.empty else por_tipo
-        resultado[grupo] = float(linhas["QUANTIDADE"].sum())
+        # A planilha de metas armazena energia em kWh; o painel exibe MWh.
+        resultado[grupo] = float(linhas["QUANTIDADE"].sum()) / 1000
     return resultado
 
 
@@ -142,7 +161,7 @@ def tema(fig, altura: int = 390):
 
 
 def energia_mwh(valor: float) -> str:
-    return f"{valor:,.2f} MWh"
+    return formatar_mwh(valor)
 
 
 st.markdown("""
@@ -223,10 +242,12 @@ if not cancelados.empty:
         f"{MESES[ultimo_mes_cancelado].title()}."
     )
     with st.expander("Ver cancelamentos do alerta"):
+        recentes = recentes.copy()
+        recentes["CNR_ENERGIA_MWH"] = recentes["CNR_ENERGIA"].abs() / 1000
         st.dataframe(
             recentes[["INSPECAO_ID", "NOVA_REGIONAL", "GRUPO_CNR", "STATUS_CNR_EQTL",
-                      "CNR_ENERGIA", "MOTIVO_CANCELAMENTO_DESCRICAO", "PROJETO_PERDA"]]
-            .sort_values("CNR_ENERGIA", ascending=False),
+                      "CNR_ENERGIA_MWH", "MOTIVO_CANCELAMENTO_DESCRICAO", "PROJETO_PERDA"]]
+            .sort_values("CNR_ENERGIA_MWH", ascending=False),
             width="stretch", hide_index=True,
         )
 
@@ -266,28 +287,31 @@ faturado_grupo = faturados.groupby("GRUPO")["CNR_ENERGIA"].sum()
 cancelado_grupo = cancelados.groupby("GRUPO")["CNR_ENERGIA"].apply(lambda s: s.abs().sum())
 comparativo = pd.DataFrame({
     "Grupo": grupos * 2,
-    "Tipo": ["Realizado"] * len(grupos) + ["Meta"] * len(grupos),
-    "Energia (MWh)": [
+    "Tipo": ["Meta"] * len(grupos) + ["Realizado"] * len(grupos),
+    "Energia (MWh)": [metas_grupo.get(g, 0) for g in grupos] + [
         (float(faturado_grupo.get(g, 0)) - float(cancelado_grupo.get(g, 0))) / 1000
         for g in grupos
-    ] + [metas_grupo.get(g, 0) for g in grupos],
+    ],
 })
+comparativo["Rótulo"] = comparativo["Energia (MWh)"].map(formatar_mwh)
 c1, c2 = st.columns(2)
 with c1:
     fig = px.bar(comparativo, x="Grupo", y="Energia (MWh)", color="Tipo", barmode="group",
-                 title="Meta x realizado de CNR", text="Energia (MWh)",
+                 title="Meta x realizado de CNR", text="Rótulo",
+                 category_orders={"Tipo": ["Meta", "Realizado"]},
                  color_discrete_map={"Realizado": "#38BDF8", "Meta": "#64748B"})
-    fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="outside", cliponaxis=False)
     selecao_meta = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_meta", on_select="rerun", selection_mode="points"
     )
 with c2:
     evolucao = df.groupby(["FISCAL_CICLO_STATUS_MES", "STATUS_ROTULO"], as_index=False)["CNR_ENERGIA"].sum()
     evolucao["Energia (MWh)"] = evolucao["CNR_ENERGIA"].abs() / 1000
+    evolucao["Rótulo"] = evolucao["Energia (MWh)"].map(formatar_mwh)
     evolucao["Mês"] = evolucao["FISCAL_CICLO_STATUS_MES"].map(lambda m: MESES[int(m)].title())
     fig = px.bar(evolucao, x="Mês", y="Energia (MWh)", color="STATUS_ROTULO", barmode="group",
-                 title="Evolução mensal por status", text="Energia (MWh)", color_discrete_map=CORES_STATUS)
-    fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False)
+                 title="Evolução mensal por status", text="Rótulo", color_discrete_map=CORES_STATUS)
+    fig.update_traces(textposition="outside", cliponaxis=False)
     selecao_evolucao = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_evolucao", on_select="rerun", selection_mode="points"
     )
@@ -299,9 +323,10 @@ with t1:
         lambda g: (float(faturado_grupo.get(g, 0)) - float(cancelado_grupo.get(g, 0))) / 1000
     )
     ticket_grupo["Ticket médio (MWh)"] = ticket_grupo["Real (MWh)"].div(ticket_grupo["SS"].replace(0, pd.NA)).fillna(0)
-    fig = px.bar(ticket_grupo, x="GRUPO", y="Ticket médio (MWh)", title="Ticket médio por grupo", text="Ticket médio (MWh)",
+    ticket_grupo["Rótulo"] = ticket_grupo["Ticket médio (MWh)"].map(formatar_mwh)
+    fig = px.bar(ticket_grupo, x="GRUPO", y="Ticket médio (MWh)", title="Ticket médio por grupo", text="Rótulo",
                  color="GRUPO", color_discrete_map={"A": "#38BDF8", "B": "#34D399", "IP": "#F59E0B"})
-    fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False, showlegend=False)
+    fig.update_traces(textposition="outside", cliponaxis=False, showlegend=False)
     selecao_ticket_grupo = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_ticket_grupo", on_select="rerun", selection_mode="points"
     )
@@ -319,19 +344,21 @@ with t2:
     ticket_projeto = projeto_status[["Real (MWh)"]].join(ss_projeto.rename("SS")).reset_index()
     ticket_projeto["Ticket médio (MWh)"] = ticket_projeto["Real (MWh)"].div(ticket_projeto["SS"].replace(0, pd.NA)).fillna(0)
     ticket_projeto = ticket_projeto.nlargest(10, "Ticket médio (MWh)").sort_values("Ticket médio (MWh)")
+    ticket_projeto["Rótulo"] = ticket_projeto["Ticket médio (MWh)"].map(formatar_mwh)
     fig = px.bar(ticket_projeto, x="Ticket médio (MWh)", y="PROJETO", orientation="h", title="Ticket médio por projeto",
-                 text="Ticket médio (MWh)", color_discrete_sequence=["#A78BFA"])
-    fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False)
+                 text="Rótulo", color_discrete_sequence=["#A78BFA"])
+    fig.update_traces(textposition="outside", cliponaxis=False)
     selecao_ticket_projeto = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_ticket_projeto", on_select="rerun", selection_mode="points"
     )
 
 m1, m2 = st.columns(2)
 with m1:
-    motivos = cancelados.groupby("MOTIVO_RESUMIDO", as_index=False).agg(SS=("INSPECAO_ID", "nunique"), Energia=("CNR_ENERGIA", "sum"))
+    motivos = cancelados.groupby("MOTIVO_RESUMIDO", as_index=False).agg(SS=("INSPECAO_ID", "nunique"), Energia_kWh=("CNR_ENERGIA", "sum"))
+    motivos["Energia (MWh)"] = motivos["Energia_kWh"].abs() / 1000
     motivos = motivos.nlargest(10, "SS").sort_values("SS")
     fig = px.bar(motivos, x="SS", y="MOTIVO_RESUMIDO", orientation="h", title="Maiores motivos de cancelamento",
-                 text="SS", color_discrete_sequence=["#F87171"], hover_data=["Energia"])
+                 text="SS", color_discrete_sequence=["#F87171"], hover_data={"Energia (MWh)": ":.2f", "Energia_kWh": False})
     fig.update_traces(textposition="outside", cliponaxis=False)
     selecao_motivos = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_motivos", on_select="rerun", selection_mode="points"
@@ -339,11 +366,16 @@ with m1:
 with m2:
     perfil = df.groupby(["IRREGULARIDADE", "LIGACAO"], as_index=False)["CNR_ENERGIA"].sum()
     perfil["Energia (MWh)"] = perfil["CNR_ENERGIA"].abs() / 1000
+    perfil["Rótulo"] = perfil["Energia (MWh)"].map(formatar_mwh)
     fig = px.bar(perfil, x="IRREGULARIDADE", y="Energia (MWh)", color="LIGACAO", barmode="group",
-                 title="Energia por irregularidade e tipo de ligação", text="Energia (MWh)")
-    fig.update_traces(texttemplate="%{text:,.2f}", textposition="outside", cliponaxis=False)
+                 title="Energia por irregularidade e tipo de ligação", text="Rótulo",
+                 category_orders={"LIGACAO": ["Monofásico", "Bifásico", "Trifásico"]})
+    fig.update_traces(textposition="outside", cliponaxis=False)
     fig = tema(fig)
-    fig.update_layout(legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom"))
+    fig.update_layout(legend=dict(
+        title_text="", orientation="h", x=.5, xanchor="center",
+        y=1.03, yanchor="bottom",
+    ))
     selecao_perfil = st.plotly_chart(
         fig, width="stretch", key="cnr_perfil", on_select="rerun", selection_mode="points"
     )
@@ -371,12 +403,12 @@ if valores:
 validacao_df["CNR_ENERGIA_MWH"] = validacao_df["CNR_ENERGIA"] / 1000
 colunas = [
     "INSPECAO_ID", "NOVA_REGIONAL", "GRUPO_CNR", "FISCAL_CICLO_STATUS_ANO",
-    "FISCAL_CICLO_STATUS_MES", "STATUS_CNR_EQTL", "CNR_ENERGIA", "CNR_ENERGIA_MWH",
+    "FISCAL_CICLO_STATUS_MES", "STATUS_CNR_EQTL", "CNR_ENERGIA_MWH",
     "TIPO_IRREGULARIDADE_TOI", "TIPOLIGACAO", "MOTIVO_CANCELAMENTO_DESCRICAO",
     "PROJETO_PERDA", "ARQUIVO_ORIGEM", "ATUALIZADO_EM",
 ]
 colunas = [c for c in colunas if c in df.columns]
-validacao = validacao_df[colunas].sort_values("CNR_ENERGIA", ascending=False)
+validacao = validacao_df[colunas].sort_values("CNR_ENERGIA_MWH", ascending=False)
 st.dataframe(validacao, width="stretch", hide_index=True, height=450)
 st.download_button(
     "Baixar base filtrada de CNR",
