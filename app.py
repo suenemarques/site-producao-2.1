@@ -5,6 +5,7 @@ import unicodedata
 from calendar import monthrange
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import plotly.express as px
@@ -336,14 +337,12 @@ com_irreg = float(df["COM_IRREGULARIDADE"].sum())
 sem_irreg = float(df["SEM_IRREGULARIDADE"].sum())
 nao_exec = float(df["NAO_EXECUTADO"].sum())
 assertividade = com_irreg / total_fisc * 100 if total_fisc else 0
-taxa_execucao = total_fisc / (total_fisc + nao_exec) * 100 if total_fisc + nao_exec else 0
 
 st.markdown("### Qualidade da execução")
-q1, q2, q3, q4 = st.columns(4)
+q1, q2, q3 = st.columns(3)
 q1.metric("Assertividade", f"{assertividade:.1f}%", help="Com irregularidade ÷ fiscalizações")
-q2.metric("Taxa de execução", f"{taxa_execucao:.1f}%", help="Fiscalizações ÷ fiscalizações + não executados")
-q3.metric("Com irregularidade", f"{com_irreg:,.0f}")
-q4.metric("Não executados", f"{nao_exec:,.0f}")
+q2.metric("Com irregularidade", f"{com_irreg:,.0f}")
+q3.metric("Não executados", f"{nao_exec:,.0f}")
 
 graf1, graf2 = st.columns([1.08, .92])
 with graf1:
@@ -432,26 +431,31 @@ if not equipe.empty:
     )
     fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
     qtd_equipes = max(len(equipe), 1)
-    simbolos_meta = {
-        "FISCALIZACAO": "circle", "NORMALIZACAO": "diamond",
-        "FRAUDE": "square", "DEFEITO": "triangle-up",
-    }
     for indicador in INDICADORES:
         rotulo = ROTULOS[indicador]
         meta_por_equipe = metas_filtro[indicador] / qtd_equipes
+        realizado_equipe = equipe[indicador].astype(float)
+        situacoes = [
+            "Acima ou dentro da meta" if valor >= meta_por_equipe else "Abaixo da meta"
+            for valor in realizado_equipe
+        ]
         fig.add_trace(go.Scatter(
             x=equipe["Equipe"],
             y=[meta_por_equipe] * len(equipe),
             mode="markers+text",
             name=f"Meta {rotulo}",
             marker=dict(
-                color=CORES[rotulo], size=11, symbol=simbolos_meta[indicador],
-                line=dict(color="#FFFFFF", width=1),
+                color=CORES[rotulo], size=30, symbol="line-ew",
+                line=dict(color=CORES[rotulo], width=5),
             ),
             text=[meta_por_equipe] * len(equipe),
-            texttemplate="%{text:,.0f}",
+            texttemplate="Meta %{text:,.0f}",
             textposition="top center",
-            hovertemplate=f"Meta proporcional {rotulo}: %{{y:,.1f}}<extra></extra>",
+            customdata=situacoes,
+            hovertemplate=(
+                f"Meta proporcional {rotulo}: %{{y:,.1f}}<br>"
+                "Situação: %{customdata}<extra></extra>"
+            ),
         ))
     st.plotly_chart(tema_figura(fig, 430), width="stretch")
 
@@ -501,8 +505,12 @@ with st.expander("Consultar produção detalhada"):
         mime="text/csv",
     )
 
+horario_atualizacao = datetime.fromtimestamp(
+    ARQ_PRODUCAO.stat().st_mtime,
+    tz=ZoneInfo("America/Sao_Paulo"),
+)
 st.caption(
-    f"Dados atualizados em: {datetime.fromtimestamp(ARQ_PRODUCAO.stat().st_mtime):%d/%m/%Y às %H:%M} · "
+    f"Dados atualizados em: {horario_atualizacao:%d/%m/%Y às %H:%M} · "
     "Fonte: ODS de produção · Data de referência: DT_CONCLUSAO · "
     "Rio Verde e Morrinhos definidos pela coluna POLO."
 )
