@@ -243,7 +243,7 @@ if not meses_disponiveis:
 with st.sidebar:
     st.markdown("### ⚡ Produção 2.0")
     st.caption("Recuperação de Energia · Sul")
-    st.button("📊 Produção", disabled=True, width="stretch")
+    st.link_button("📊 Produção", "/", width="stretch")
     if PAGINA_CNR.is_file():
         st.page_link(
             "pages/2_Energia_CNR.py",
