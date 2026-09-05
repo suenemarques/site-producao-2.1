@@ -160,7 +160,10 @@ def tema(fig, altura: int = 390):
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
         margin=dict(l=20, r=45, t=90, b=40),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
-        legend=dict(orientation="h", y=1.03, x=0, yanchor="bottom"),
+        legend=dict(
+            orientation="h", y=1.03, x=.5, xanchor="center", yanchor="bottom",
+            entrywidth=.30, entrywidthmode="fraction",
+        ),
         legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
@@ -213,6 +216,12 @@ with st.sidebar:
         "pages/3_Incremento.py", label="Incremento", icon="📈",
         width="stretch",
     )
+    for pagina, rotulo, icone in [
+        ("4_MEPE.py", "MEPE", "🎯"),
+        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+    ]:
+        st.page_link(f"pages/{pagina}", label=rotulo, icon=icone, width="stretch")
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
@@ -399,7 +408,7 @@ with m2:
     fig = tema(fig)
     fig.update_layout(legend=dict(
         title_text="", orientation="h", x=.5, xanchor="center",
-        y=1.03, yanchor="bottom",
+        y=1.03, yanchor="bottom", entrywidth=.30, entrywidthmode="fraction",
     ))
     selecao_perfil = st.plotly_chart(
         fig, width="stretch", key="cnr_perfil", on_select="rerun", selection_mode="points"
