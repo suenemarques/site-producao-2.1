@@ -54,6 +54,41 @@ def normalizar_texto(valor: object) -> str:
     return re.sub(r"\s+", " ", texto)
 
 
+def normalizar_servico(valor: object) -> str:
+    return re.sub(r"[^A-Z0-9]+", " ", normalizar_texto(valor)).strip()
+
+
+def categorizar_servico_grupo_a(descricao: object, resultado: object) -> str:
+    servico = normalizar_servico(descricao)
+    resultado_n = normalizar_servico(resultado)
+    fiscalizacao = {"INSPECOES", "INSPECAO PERDAS AT BI OPAT"}
+    telemetria = {"MANUTENCAO CENTRO DE MEDICAO", "MANUTENCAO DE TELEMETRIA GRUPO A", "MANUTENCAO DE FRONTEIRA"}
+    anexo_comercial = {
+        "DESLIGAMENTO LIGACAO PROVISORIA GRUPO A", "CONEXAO GD GRUPO A",
+        "CONEXAO GD GRUPO A OLD PROCESS", "CONEXAO GD MICROGERACAO",
+        "DESLIGAMENTO DE UC GRUPO A", "DESLIGAMENTO DE UC GRUPO A A PEDIDO DA DISTRIBUIDORA",
+        "DESLIGAMENTO LIGACAO PROVISORIA", "INSPECAO DE UC GRUPO A",
+        "LIGACAO NOVA CAMPO RURAL 10 DIAS", "LIGACAO NOVA CAMPO URBANA 10 DIAS",
+        "LIGACAO NOVA CAMPO URBANA", "LIGACAO NOVA CAMPO RURAL", "LIGACAO NOVA GRUPO A",
+        "LIGACAO NOVA RURAL GRUPO A", "LIGACAO NOVA URBANA GRUPO A",
+        "LIGACAO NOVA GRUPO A CAMPO RURAL 10 DIAS", "LIGACAO PROVISORIA GRUPO A",
+        "MUDANCA DE PADRAO AUMENTO DE CARGA GR A", "REATIVACAO DE UC GRUPO A",
+        "REATIVACAO DE UC GER DIST GRUPO A", "FORNECIMENTO DE PULSO E SINCRONISMO",
+        "INSTALACAO DE TELEMETRIA GRUPO A", "LEITURA EM CAMPO GRUPO A",
+        "MEDICAO DE QUALIDADE POR AMOSTRAL ANEEL GRUPO A",
+        "RETIRADA DE MEDIDOR PARA AFERICAO GRUPO A", "INSPECAO DE PERDAS SEM UC",
+        "REGISTRO DE EXECUCAO LIGACAO NOVA GRUPO A",
+        "REGISTRO DE EXECUCAO SERVICOS COMERCIAIS GRUPO A",
+    }
+    if servico in fiscalizacao and resultado_n in {"COM IRREGULARIDADE", "SEM IRREGULARIDADE"}:
+        return "FISCALIZAÇÃO"
+    if servico in telemetria:
+        return "TELEMETRIA"
+    if servico in anexo_comercial:
+        return "ANEXO IV+ COMERCIAL"
+    return "OUTROS"
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def carregar_bases() -> tuple[pd.DataFrame, pd.DataFrame]:
     producao = pd.read_parquet(ARQ_PRODUCAO)
@@ -83,6 +118,17 @@ def carregar_bases() -> tuple[pd.DataFrame, pd.DataFrame]:
     producao["GRUPO_PAINEL"] = ""
     producao.loc[grupo.str.startswith("A"), "GRUPO_PAINEL"] = "A"
     producao.loc[grupo.str.startswith("B"), "GRUPO_PAINEL"] = "B"
+
+    coluna_equipe = "PRX_DESCRICAO" if "PRX_DESCRICAO" in producao.columns else "PRX"
+    equipe_prx = producao[coluna_equipe].fillna("").astype(str).str.upper().str.strip()
+    equipes_ga = {f"SULA{i}M" for i in range(200, 208)}
+    producao["EQUIPE_GRUPO_A"] = equipe_prx.isin(equipes_ga)
+    producao.loc[producao["EQUIPE_GRUPO_A"], "GRUPO_PAINEL"] = "A"
+    producao.loc[equipe_prx.isin({f"SULA{i}M" for i in range(200, 204)}), "REGIONAL_PAINEL"] = "MORRINHOS"
+    producao.loc[equipe_prx.isin({f"SULA{i}M" for i in range(204, 208)}), "REGIONAL_PAINEL"] = "RIO VERDE"
+    descricoes = producao.get("DESCRICAO_STPOS", pd.Series("", index=producao.index))
+    resultados = producao.get("RESULTADO_INSPECAO_1", pd.Series("", index=producao.index))
+    producao["CATEGORIA_GA"] = [categorizar_servico_grupo_a(d, r) for d, r in zip(descricoes, resultados)]
 
     metas.rename(columns={"MÊS": "MES"}, inplace=True)
     metas["REGIONAL"] = metas["REGIONAL"].map(normalizar_texto)
@@ -318,7 +364,10 @@ data_inicio_ts = pd.Timestamp(data_inicio)
 data_fim_ts = pd.Timestamp(data_fim) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
 filtro &= producao["DT_CONCLUSAO_DATA"].between(data_inicio_ts, data_fim_ts)
 if projetos:
-    filtro &= producao["projeto_perdas"].isin(projetos)
+    filtro &= (
+        producao["projeto_perdas"].isin(projetos)
+        | (producao["EQUIPE_GRUPO_A"] & ("A" in grupos))
+    )
 else:
     filtro &= False
 if equipes:
@@ -492,6 +541,26 @@ if not equipe.empty:
     fig.update_layout(title="Produção por equipe", showlegend=False)
     fig.update_xaxes(tickangle=-25)
     st.plotly_chart(tema_figura(fig, 680), width="stretch")
+
+if "A" in grupos:
+    servicos_ga = df.loc[df["EQUIPE_GRUPO_A"]].copy()
+    if not servicos_ga.empty:
+        resumo_ga = (
+            servicos_ga.groupby(["PRX_DESCRICAO", "CATEGORIA_GA"], as_index=False)
+            .size().rename(columns={"size": "Quantidade", "PRX_DESCRICAO": "Equipe"})
+        )
+        fig = px.bar(
+            resumo_ga, x="Equipe", y="Quantidade", color="CATEGORIA_GA", barmode="stack",
+            text="Quantidade", title="Serviços do Grupo A por equipe",
+            category_orders={"CATEGORIA_GA": ["FISCALIZAÇÃO", "TELEMETRIA", "ANEXO IV+ COMERCIAL", "OUTROS"]},
+            color_discrete_map={"FISCALIZAÇÃO": "#38BDF8", "TELEMETRIA": "#34D399", "ANEXO IV+ COMERCIAL": "#F59E0B", "OUTROS": "#94A3B8"},
+            labels={"CATEGORIA_GA": "", "Quantidade": "Quantidade"},
+        )
+        fig.update_traces(texttemplate="%{text:,.0f}", textposition="auto", cliponaxis=False)
+        fig.update_layout(legend=dict(orientation="h", x=.5, xanchor="center", y=1.08, yanchor="bottom"), margin=dict(t=105, r=35, b=65, l=55))
+        fig.update_xaxes(tickangle=-25)
+        fig.update_yaxes(rangemode="tozero", automargin=True)
+        st.plotly_chart(tema_figura(fig, 500), width="stretch")
 
 c1, c2 = st.columns(2)
 with c1:
