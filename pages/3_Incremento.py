@@ -116,7 +116,7 @@ def tema(fig, altura: int = 400):
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
         margin=dict(l=20, r=45, t=90, b=40),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
-        legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom"),
+        legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom", entrywidth=.30, entrywidthmode="fraction"),
         legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
@@ -157,6 +157,12 @@ with st.sidebar:
     if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
         st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
+    for pagina, rotulo, icone in [
+        ("4_MEPE.py", "MEPE", "🎯"),
+        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+    ]:
+        st.page_link(f"pages/{pagina}", label=rotulo, icon=icone, width="stretch")
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
