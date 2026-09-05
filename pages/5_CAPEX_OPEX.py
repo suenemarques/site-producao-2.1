@@ -8,7 +8,7 @@ BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"capex_opex.parquet"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 def moeda(v): return "R$ "+f"{v:,.2f}".replace(",","X").replace(".",",").replace("X",".")
 def tema(fig,h=420):
-    fig.update_layout(height=h,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",font_color="#CAD5E2",legend_title_text="",legend=dict(orientation="h",x=.5,xanchor="center",y=1.04,yanchor="bottom"),margin=dict(l=25,r=55,t=90,b=45))
+    fig.update_layout(height=h,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",font_color="#CAD5E2",legend_title_text="",legend=dict(orientation="h",x=.5,xanchor="center",y=1.04,yanchor="bottom",entrywidth=.30,entrywidthmode="fraction"),margin=dict(l=25,r=55,t=90,b=45))
     fig.update_xaxes(gridcolor="rgba(148,163,184,.10)",automargin=True); fig.update_yaxes(gridcolor="rgba(148,163,184,.10)",automargin=True); return fig
 st.markdown("""<style>.stApp{background:#07111F;color:#E8EEF6}[data-testid="stSidebar"]{background:#0B1728;border-right:1px solid #1E3047}[data-testid="stSidebarNav"]{display:none}.block-container{padding-top:1.5rem;max-width:1550px}div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:.5rem}.nav{display:block;padding:.55rem;margin:.25rem 0;border:1px solid #46556A;border-radius:.5rem;text-align:center;color:white!important;text-decoration:none!important}</style>""",unsafe_allow_html=True)
 if not ARQ.is_file(): st.error("Base CAPEX/OPEX não encontrada."); st.info("Execute o Atualizador Único V13."); st.stop()
@@ -20,13 +20,14 @@ with st.sidebar:
     st.markdown("### 💰 CAPEX e OPEX"); st.caption("Somente equipes RIOF e MORF")
     st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
     for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
+        st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
     st.button("💰 CAPEX e OPEX",disabled=True,width="stretch")
-    if (BASE/"pages"/"6_Validacao_Turnos.py").is_file(): st.page_link("pages/6_Validacao_Turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
+    st.page_link("pages/6_Validacao_Turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(d0.REGIONAL.unique()),default=sorted(d0.REGIONAL.unique()))
     meses=st.multiselect("Mês",sorted(d0.MES_REF.unique()),default=sorted(d0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
-    equipes=st.multiselect("Equipe",sorted(d0.EQUIPE.unique()),default=sorted(d0.EQUIPE.unique()))
+    equipes_disp=sorted(d0.loc[d0.REGIONAL.isin(regs),"EQUIPE"].unique())
+    equipes=st.multiselect("Equipe",equipes_disp,default=equipes_disp,key="equipes_capex_"+"_".join(regs))
 d=d0[d0.REGIONAL.isin(regs)&d0.MES_REF.isin(meses)&d0.EQUIPE.isin(equipes)].copy()
 tot=d.groupby("CLASSIFICACAO").VALOR.sum(); odi=float(tot.get("ODI",0)); odd=float(tot.get("ODD",0)); opex=float(tot.get("OPEX",0)); capex=odi+odd
 atualizado=pd.to_datetime(d0.get("ATUALIZADO_EM",pd.Series(dtype=str)),errors="coerce").max()
