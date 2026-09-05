@@ -114,14 +114,14 @@ def tema(fig, altura: int = 400):
     fig.update_layout(
         height=altura, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
-        margin=dict(l=15, r=20, t=90, b=35),
+        margin=dict(l=20, r=45, t=90, b=40),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
         legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom"),
         legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
-    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
     return fig
 
 
@@ -220,7 +220,7 @@ with c1:
         category_orders={"Tipo": ["Meta", "Realizado"]},
         color_discrete_map={"Meta": "#64748B", "Realizado": "#38BDF8"},
     )
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema(fig), width="stretch")
 with c2:
     evolucao = pd.DataFrame({"Mês número": meses})
@@ -236,7 +236,7 @@ with c2:
         title="Ganho mensal", text="Rótulo",
         color_discrete_map={"Crescimento": "#34D399", "Queda": "#F87171", "Primeiro mês": "#38BDF8"},
     )
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema(fig), width="stretch")
 
 t1, t2 = st.columns(2)
@@ -249,14 +249,14 @@ with t1:
     ticket_projeto["Rótulo"] = ticket_projeto["Ticket médio (MWh)"].map(formatar_mwh)
     fig = px.bar(ticket_projeto, x="Ticket médio (MWh)", y="PROJETO_N", orientation="h",
                  title="Ticket médio por projeto", text="Rótulo", color_discrete_sequence=["#A78BFA"])
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema(fig), width="stretch")
 with t2:
     grupo = incremento.groupby("GRUPO_N", as_index=False)["GANHO_MWH"].sum()
     grupo["Rótulo"] = grupo["GANHO_MWH"].map(formatar_mwh)
     fig = px.bar(grupo, x="GRUPO_N", y="GANHO_MWH", color="GRUPO_N", text="Rótulo",
                  title="Incremento por grupo", color_discrete_map={"A": "#38BDF8", "B": "#34D399", "IP": "#F59E0B"})
-    fig.update_traces(textposition="outside", cliponaxis=False, showlegend=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle", showlegend=False)
     st.plotly_chart(tema(fig), width="stretch")
 
 d1, d2 = st.columns(2)
@@ -267,7 +267,7 @@ with d1:
     fig = px.bar(motivos, x="Registros", y="MOTIVO_DESCONSIDERACAO", orientation="h",
                  title="Incrementos desconsiderados e motivos", text="Registros",
                  color_discrete_sequence=["#F87171"], hover_data={"Energia_MWh": ":.2f"})
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema(fig), width="stretch")
 with d2:
     residual_graf = residual.groupby(["ANO_NORM", "PROJETO_N"], as_index=False)["GANHO_MWH"].sum()
