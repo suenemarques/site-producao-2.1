@@ -30,11 +30,14 @@ with st.sidebar:
         if (BASE/"pages"/arq).is_file():
             st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
     st.button("🎯 MEPE",disabled=True,width="stretch")
-    for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_Turnos.py","Validação de Turnos","🕒")]:
-        if (BASE/"pages"/arq).is_file():
-            st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
-        elif arq == "6_Validacao_Turnos.py":
-            st.warning("Envie 6_Validacao_Turnos.py para a pasta pages do GitHub.")
+    if (BASE/"pages"/"5_CAPEX_OPEX.py").is_file():
+        st.page_link("pages/5_CAPEX_OPEX.py",label="CAPEX e OPEX",icon="💰",width="stretch")
+    pagina_turnos = next(
+        (nome for nome in ["6_Validacao_Turnos.py", "6_Validacao_turnos.py"] if (BASE/"pages"/nome).is_file()),
+        None,
+    )
+    if pagina_turnos:
+        st.page_link(f"pages/{pagina_turnos}",label="Validação de Turnos",icon="🕒",width="stretch")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(df0.REGIONAL_MEPE.unique()),default=sorted(df0.REGIONAL_MEPE.unique()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
@@ -71,8 +74,9 @@ def tabela_indicador(nome,meta,real,pont):
     t=resumo[["PRX_DESCRICAO",meta,real,pont]].copy()
     t["CLASSIFICAÇÃO"]=t[pont].map(lambda v:classe(v,nome))
     if nome in {"CNR","INCREMENTO"}:
-        t[meta]=t[meta]/1000; t[real]=t[real]/1000
-        t=t.rename(columns={meta:"META (MWh)",real:"REALIZADO (MWh)",pont:"PONTUAÇÃO","PRX_DESCRICAO":"EQUIPE"})
+        t[meta]=t[meta].map(lambda v:f"{v:,.0f}".replace(",","."))
+        t[real]=t[real].map(lambda v:f"{v:,.0f}".replace(",","."))
+        t=t.rename(columns={meta:"META (kWh)",real:"REALIZADO (kWh)",pont:"PONTUAÇÃO","PRX_DESCRICAO":"EQUIPE"})
     else:
         t=t.rename(columns={meta:"META",real:"REALIZADO",pont:"PONTUAÇÃO","PRX_DESCRICAO":"EQUIPE"})
     return t.round(2)
