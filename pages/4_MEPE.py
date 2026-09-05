@@ -18,7 +18,7 @@ def tema(fig, h=420):
 
 st.markdown("""<style>.stApp{background:#07111F;color:#E8EEF6}[data-testid="stSidebar"]{background:#0B1728;border-right:1px solid #1E3047}[data-testid="stSidebarNav"]{display:none}.block-container{padding-top:1.5rem;max-width:1550px}div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:.5rem}.nav{display:block;padding:.55rem;margin:.25rem 0;border:1px solid #46556A;border-radius:.5rem;text-align:center;color:white!important;text-decoration:none!important}</style>""",unsafe_allow_html=True)
 if not ARQ.is_file():
-    st.error("Base MEPE não encontrada."); st.info("Execute o Atualizador Único V14 para gerar dados/mepe.parquet."); st.stop()
+    st.error("Base MEPE não encontrada."); st.info("Execute o Atualizador Único V15 para gerar dados/mepe.parquet."); st.stop()
 
 @st.cache_data(ttl=900)
 def carregar(): return pd.read_parquet(ARQ)
