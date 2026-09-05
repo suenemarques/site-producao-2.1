@@ -27,10 +27,14 @@ with st.sidebar:
     st.markdown("### 🎯 MEPE"); st.caption("Recuperação de Energia · Sul")
     st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
     for arq,label,icone in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈")]:
-        st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+        if (BASE/"pages"/arq).is_file():
+            st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
     st.button("🎯 MEPE",disabled=True,width="stretch")
     for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_Turnos.py","Validação de Turnos","🕒")]:
-        st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+        if (BASE/"pages"/arq).is_file():
+            st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+        elif arq == "6_Validacao_Turnos.py":
+            st.warning("Envie 6_Validacao_Turnos.py para a pasta pages do GitHub.")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(df0.REGIONAL_MEPE.unique()),default=sorted(df0.REGIONAL_MEPE.unique()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
