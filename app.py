@@ -306,6 +306,13 @@ with st.sidebar:
         "pages/3_Incremento.py", label="Incremento", icon="📈",
         width="stretch",
     )
+    for pagina, rotulo, icone in [
+        ("4_MEPE.py", "MEPE", "🎯"),
+        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+    ]:
+        if (BASE_DIR / "pages" / pagina).is_file():
+            st.page_link(f"pages/{pagina}", label=rotulo, icon=icone, width="stretch")
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
