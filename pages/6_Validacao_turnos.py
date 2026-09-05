@@ -9,7 +9,7 @@ BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"validacao_turnos.par
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 def inteiro(v): return f"{v:,.0f}".replace(",",".")
 def tema(fig,h=430):
-    fig.update_layout(height=h,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",font_color="#CAD5E2",legend_title_text="",legend=dict(orientation="h",x=.5,xanchor="center",y=1.04,yanchor="bottom",entrywidth=.30,entrywidthmode="fraction"),margin=dict(l=25,r=55,t=90,b=50))
+    fig.update_layout(height=h,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",font_color="#CAD5E2",legend_title_text="",legend=dict(orientation="h",x=.5,xanchor="center",y=1.04,yanchor="bottom"),margin=dict(l=25,r=55,t=90,b=50))
     fig.update_xaxes(gridcolor="rgba(148,163,184,.10)",automargin=True); fig.update_yaxes(gridcolor="rgba(148,163,184,.10)",automargin=True); return fig
 st.markdown("""<style>.stApp{background:#07111F;color:#E8EEF6}[data-testid="stSidebar"]{background:#0B1728;border-right:1px solid #1E3047}[data-testid="stSidebarNav"]{display:none}.block-container{padding-top:1.5rem;max-width:1550px}div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:.5rem}.nav{display:block;padding:.55rem;margin:.25rem 0;border:1px solid #46556A;border-radius:.5rem;text-align:center;color:white!important;text-decoration:none!important}</style>""",unsafe_allow_html=True)
 if not ARQ.is_file(): st.error("Base de turnos não encontrada."); st.info("Execute o Atualizador Único V15 para gerar dados/validacao_turnos.parquet."); st.stop()
