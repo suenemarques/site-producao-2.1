@@ -158,14 +158,14 @@ def tema(fig, altura: int = 390):
     fig.update_layout(
         height=altura, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
-        margin=dict(l=15, r=20, t=90, b=35),
+        margin=dict(l=20, r=45, t=90, b=40),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
         legend=dict(orientation="h", y=1.03, x=0, yanchor="bottom"),
         legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
-    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
     return fig
 
 
@@ -325,7 +325,7 @@ with c1:
                  title="Meta x realizado de CNR", text="Rótulo",
                  category_orders={"Tipo": ["Meta", "Realizado"]},
                  color_discrete_map={"Realizado": "#38BDF8", "Meta": "#64748B"})
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     selecao_meta = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_meta", on_select="rerun", selection_mode="points"
     )
@@ -336,7 +336,7 @@ with c2:
     evolucao["Mês"] = evolucao["FISCAL_CICLO_STATUS_MES"].map(lambda m: MESES[int(m)].title())
     fig = px.bar(evolucao, x="Mês", y="Energia (MWh)", color="STATUS_ROTULO", barmode="group",
                  title="Evolução mensal por status", text="Rótulo", color_discrete_map=CORES_STATUS)
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     selecao_evolucao = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_evolucao", on_select="rerun", selection_mode="points"
     )
@@ -351,7 +351,7 @@ with t1:
     ticket_grupo["Rótulo"] = ticket_grupo["Ticket médio (MWh)"].map(formatar_mwh)
     fig = px.bar(ticket_grupo, x="GRUPO", y="Ticket médio (MWh)", title="Ticket médio por grupo", text="Rótulo",
                  color="GRUPO", color_discrete_map={"A": "#38BDF8", "B": "#34D399", "IP": "#F59E0B"})
-    fig.update_traces(textposition="outside", cliponaxis=False, showlegend=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle", showlegend=False)
     selecao_ticket_grupo = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_ticket_grupo", on_select="rerun", selection_mode="points"
     )
@@ -372,7 +372,7 @@ with t2:
     ticket_projeto["Rótulo"] = ticket_projeto["Ticket médio (MWh)"].map(formatar_mwh)
     fig = px.bar(ticket_projeto, x="Ticket médio (MWh)", y="PROJETO", orientation="h", title="Ticket médio por projeto",
                  text="Rótulo", color_discrete_sequence=["#A78BFA"])
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     selecao_ticket_projeto = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_ticket_projeto", on_select="rerun", selection_mode="points"
     )
@@ -384,7 +384,7 @@ with m1:
     motivos = motivos.nlargest(10, "SS").sort_values("SS")
     fig = px.bar(motivos, x="SS", y="MOTIVO_RESUMIDO", orientation="h", title="Maiores motivos de cancelamento",
                  text="SS", color_discrete_sequence=["#F87171"], hover_data={"Energia (MWh)": ":.2f", "Energia_kWh": False})
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     selecao_motivos = st.plotly_chart(
         tema(fig), width="stretch", key="cnr_motivos", on_select="rerun", selection_mode="points"
     )
@@ -395,7 +395,7 @@ with m2:
     fig = px.bar(perfil, x="IRREGULARIDADE", y="Energia (MWh)", color="LIGACAO", barmode="group",
                  title="Energia por irregularidade e tipo de ligação", text="Rótulo",
                  category_orders={"LIGACAO": ["Monofásico", "Bifásico", "Trifásico"]})
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     fig = tema(fig)
     fig.update_layout(legend=dict(
         title_text="", orientation="h", x=.5, xanchor="center",
