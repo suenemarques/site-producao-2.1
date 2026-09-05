@@ -179,7 +179,7 @@ def tema_figura(fig: go.Figure, altura: int = 390) -> go.Figure:
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
-        margin=dict(l=12, r=12, t=92, b=28),
+        margin=dict(l=20, r=45, t=92, b=35),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
         legend=dict(
             orientation="h", y=1.03, x=0, yanchor="bottom", xanchor="left",
@@ -188,8 +188,8 @@ def tema_figura(fig: go.Figure, altura: int = 390) -> go.Figure:
         legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
-    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
     return fig
 
 
@@ -378,7 +378,7 @@ with graf1:
         category_orders={"Tipo": ["Meta", "Realizado"]},
         text_auto=",.0f",
     )
-    fig.update_traces(textposition="outside", cliponaxis=False)
+    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema_figura(fig), width="stretch")
 
 with graf2:
@@ -418,6 +418,7 @@ if not diario.empty:
             mode="lines+markers+text", line=dict(color="#F59E0B", width=3),
             marker=dict(size=8), text=diario["FRAUDE"],
             texttemplate="%{text:,.0f}", textposition="top center",
+            cliponaxis=False,
         ))
         fig.update_layout(title="Evolução mensal de fraudes")
         st.plotly_chart(tema_figura(fig), width="stretch")
@@ -429,7 +430,8 @@ if not diario.empty:
         fig.update_traces(line_color="#34D399", line_width=3)
         fig.update_traces(
             mode="lines+markers+text", text=diario["ASSERTIVIDADE"],
-            texttemplate="%{text:.1f}%", textposition="top center"
+            texttemplate="%{text:.1f}%", textposition="top center",
+            cliponaxis=False,
         )
         fig.update_yaxes(ticksuffix="%", range=[0, max(100, diario["ASSERTIVIDADE"].max() * 1.15)])
         st.plotly_chart(tema_figura(fig), width="stretch")
@@ -467,7 +469,7 @@ if not equipe.empty:
             name=rotulo,
             marker_color=cores_barras,
             text=realizado_equipe,
-            texttemplate="%{text:,.0f}", textposition="outside",
+            texttemplate="%{text:,.0f}", textposition="auto",
             customdata=situacoes,
             hovertemplate=(
                 "Equipe: %{x}<br>Realizado: %{y:,.0f}<br>"
@@ -502,7 +504,7 @@ with c1:
         title="Fiscalizações por projeto", color_discrete_sequence=["#38BDF8"],
         text="FISCALIZACAO",
     )
-    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema_figura(fig), width="stretch")
 with c2:
     motivos = (
@@ -517,7 +519,7 @@ with c2:
         color_discrete_sequence=["#F87171"],
         text="Quantidade",
     )
-    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="auto", cliponaxis=False, insidetextanchor="middle")
     st.plotly_chart(tema_figura(fig), width="stretch")
 
 with st.expander("Consultar produção detalhada"):
