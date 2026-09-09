@@ -293,26 +293,27 @@ with st.sidebar:
     st.markdown("### ⚡ Produção 2.0")
     st.caption("Recuperação de Energia · Sul")
     st.button("📊 Produção", disabled=True, width="stretch")
-    if PAGINA_CNR.is_file():
-        st.page_link(
-            "pages/2_Energia_CNR.py",
-            label="Energia CNR",
-            icon="⚡",
-            width="stretch",
-        )
-    else:
-        st.warning("Página CNR não encontrada em pages/2_Energia_CNR.py")
-    st.page_link(
-        "pages/3_Incremento.py", label="Incremento", icon="📈",
-        width="stretch",
-    )
+
+    def link_pagina(nome_arquivo: str, rotulo: str, icone: str) -> None:
+        caminho = BASE_DIR / "pages" / nome_arquivo
+        if caminho.is_file():
+            st.page_link(
+                f"pages/{nome_arquivo}",
+                label=rotulo,
+                icon=icone,
+                width="stretch",
+            )
+        else:
+            st.error(f"Página não encontrada: pages/{nome_arquivo}")
+
     for pagina, rotulo, icone in [
+        ("2_Energia_CNR.py", "Energia CNR", "⚡"),
+        ("3_Incremento.py", "Incremento", "📈"),
         ("4_MEPE.py", "MEPE", "🎯"),
         ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+        ("6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
     ]:
-        if (BASE_DIR / "pages" / pagina).is_file():
-            st.page_link(f"pages/{pagina}", label=rotulo, icon=icone, width="stretch")
+        link_pagina(pagina, rotulo, icone)
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
