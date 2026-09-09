@@ -157,29 +157,27 @@ with st.sidebar:
     if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
         st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
-   for pagina, rotulo, icone in [
-    ("4_MEPE.py", "MEPE", "🎯"),
-    ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-    ("6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
-]:
-    caminho_pagina = BASE_DIR / "pages" / pagina
+    for pagina, rotulo, icone in [
+        ("4_MEPE.py", "MEPE", "🎯"),
+        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+    ]:
+        caminho_pagina = BASE_DIR / "pages" / pagina
+        if caminho_pagina.is_file():
+            st.page_link(
+                f"pages/{pagina}",
+                label=rotulo,
+                icon=icone,
+                width="stretch",
+            )
 
-    if caminho_pagina.is_file():
-        st.page_link(
-            f"pages/{pagina}",
-            label=rotulo,
-            icon=icone,
-            width="stretch",
-        )
-    else:
-        st.error(f"Página não encontrada: pages/{pagina}")
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
-    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
+    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp, key="incremento_regionais")
     grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
-    grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
+    grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp, key="incremento_grupos")
     meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
-    meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
+    meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title(), key="incremento_meses")
     if st.button("Atualizar leitura das bases", width="stretch"):
         st.cache_data.clear()
         st.rerun()
