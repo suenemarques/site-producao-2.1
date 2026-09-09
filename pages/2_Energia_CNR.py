@@ -216,7 +216,7 @@ with st.sidebar:
         ("pages/3_Incremento.py", "Incremento", "📈"),
         ("pages/4_MEPE.py", "MEPE", "🎯"),
         ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("pages/6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
     ]:
         if (BASE_DIR / pagina).is_file():
             st.page_link(
