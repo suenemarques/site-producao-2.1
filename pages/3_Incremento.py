@@ -157,12 +157,22 @@ with st.sidebar:
     if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
         st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
-    for pagina, rotulo, icone in [
+   for pagina, rotulo, icone in [
     ("4_MEPE.py", "MEPE", "🎯"),
     ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
     ("6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
 ]:
-    st.page_link(f"pages/{pagina}", label=rotulo, icon=icone, width="stretch")
+    caminho_pagina = BASE_DIR / "pages" / pagina
+
+    if caminho_pagina.is_file():
+        st.page_link(
+            f"pages/{pagina}",
+            label=rotulo,
+            icon=icone,
+            width="stretch",
+        )
+    else:
+        st.error(f"Página não encontrada: pages/{pagina}")
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
