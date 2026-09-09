@@ -311,7 +311,7 @@ with st.sidebar:
         ("3_Incremento.py", "Incremento", "📈"),
         ("4_MEPE.py", "MEPE", "🎯"),
         ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
+        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
     ]:
         link_pagina(pagina, rotulo, icone)
     st.markdown("---")
