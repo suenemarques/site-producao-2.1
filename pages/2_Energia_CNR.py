@@ -212,49 +212,35 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.button("⚡ Energia CNR", disabled=True, width="stretch")
-    st.page_link(
-        "pages/3_Incremento.py", label="Incremento", icon="📈",
-        width="stretch",
-    )
     for pagina, rotulo, icone in [
-        ("4_MEPE.py", "MEPE", "🎯"),
-        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+        ("pages/3_Incremento.py", "Incremento", "📈"),
+        ("pages/4_MEPE.py", "MEPE", "🎯"),
+        ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("pages/6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
     ]:
-       PAGINAS_MENU = [
-    ("app.py", "Produção", "📊"),
-    ("pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
-    ("pages/3_Incremento.py", "Incremento", "📈"),
-    ("pages/4_MEPE.py", "MEPE", "🎯"),
-    ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-    ("pages/6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
-]
+        if (BASE_DIR / pagina).is_file():
+            st.page_link(
+                pagina,
+                label=rotulo,
+                icon=icone,
+                width="stretch",
+            )
 
-for pagina, rotulo, icone in PAGINAS_MENU:
-    caminho_completo = BASE_DIR / pagina
-
-    if caminho_completo.is_file():
-        st.page_link(
-            pagina,
-            label=rotulo,
-            icon=icone,
-            width="stretch",
-        )
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
-    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
+    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp, key="cnr_regionais")
     grupos_disp = [g for g in ["A", "B", "IP"] if g in set(cnr["GRUPO"])]
-    grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp)
+    grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp, key="cnr_grupos")
     meses_disp = sorted(cnr["FISCAL_CICLO_STATUS_MES"].dropna().astype(int).unique())
-    meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title())
+    meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title(), key="cnr_meses")
     status_disp = [s for s in CORES_STATUS if s in set(cnr["STATUS_ROTULO"])]
-    status = st.multiselect("Status", status_disp, default=status_disp)
+    status = st.multiselect("Status", status_disp, default=status_disp, key="cnr_status")
     projetos_disp = sorted(cnr["PROJETO"].astype(str).unique())
-    projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
+    projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp, key="cnr_projetos")
     irregularidades_disp = sorted(cnr["IRREGULARIDADE"].astype(str).unique())
-    irregularidades = st.multiselect("Irregularidade", irregularidades_disp, default=irregularidades_disp)
+    irregularidades = st.multiselect("Irregularidade", irregularidades_disp, default=irregularidades_disp, key="cnr_irregularidades")
     ligacoes_disp = sorted(cnr["LIGACAO"].astype(str).unique())
-    ligacoes = st.multiselect("Tipo de ligação", ligacoes_disp, default=ligacoes_disp)
+    ligacoes = st.multiselect("Tipo de ligação", ligacoes_disp, default=ligacoes_disp, key="cnr_ligacoes")
     st.markdown("---")
     if st.button("Atualizar leitura das bases", width="stretch"):
         st.cache_data.clear()
