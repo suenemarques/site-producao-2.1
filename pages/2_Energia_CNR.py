@@ -221,7 +221,25 @@ with st.sidebar:
         ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
         ("6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
     ]:
-        st.page_link(f"pages/{pagina}", label=rotulo, icon=icone, width="stretch")
+       PAGINAS_MENU = [
+    ("app.py", "Produção", "📊"),
+    ("pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
+    ("pages/3_Incremento.py", "Incremento", "📈"),
+    ("pages/4_MEPE.py", "MEPE", "🎯"),
+    ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+    ("pages/6_Validacao_Turnos.py", "Validação de Turnos", "🕒"),
+]
+
+for pagina, rotulo, icone in PAGINAS_MENU:
+    caminho_completo = BASE_DIR / pagina
+
+    if caminho_completo.is_file():
+        st.page_link(
+            pagina,
+            label=rotulo,
+            icon=icone,
+            width="stretch",
+        )
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
