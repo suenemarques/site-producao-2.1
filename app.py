@@ -33,6 +33,7 @@ MESES = {
     9: "SETEMBRO", 10: "OUTUBRO", 11: "NOVEMBRO", 12: "DEZEMBRO",
 }
 INDICADORES = ["FISCALIZACAO", "NORMALIZACAO", "FRAUDE", "DEFEITO"]
+COLUNA_DATA_PRODUCAO = "DT_Baixa"
 ROTULOS = {
     "FISCALIZACAO": "Fiscalização",
     "NORMALIZACAO": "Normalização",
@@ -96,9 +97,47 @@ def carregar_bases() -> tuple[pd.DataFrame, pd.DataFrame]:
     producao.columns = [str(c).strip() for c in producao.columns]
     metas.columns = [str(c).strip() for c in metas.columns]
 
-    producao["DT_CONCLUSAO_DATA"] = pd.to_datetime(
-        producao["DT_CONCLUSAO"], errors="coerce"
+    if COLUNA_DATA_PRODUCAO not in producao.columns:
+        raise KeyError(
+            f"A coluna {COLUNA_DATA_PRODUCAO!r} não foi encontrada na base de produção."
+        )
+    producao["DATA_PRODUCAO"] = pd.to_datetime(
+        producao[COLUNA_DATA_PRODUCAO], errors="coerce", dayfirst=True
     )
+    producao["ANO"] = producao["DATA_PRODUCAO"].dt.year.astype("Int64")
+    producao["MES_NUM"] = producao["DATA_PRODUCAO"].dt.month.astype("Int64")
+
+    # Recalcula os indicadores na própria página para que a tela sempre siga
+    # a regra oficial, inclusive para os registros do projeto Clandestino.
+    resultado_texto = producao.get(
+        "RESULTADO_INSPECAO_1", pd.Series("", index=producao.index)
+    ).fillna("").astype(str).str.upper()
+    resultado_numero = producao.get(
+        "RESULTADO_INSPECAO", pd.Series("", index=producao.index)
+    ).fillna("").astype(str).str.strip()
+    codigo = producao.get(
+        "CODIGO_IRREGULARIDADE_CAMPO", pd.Series("", index=producao.index)
+    ).fillna("").astype(str).str.strip()
+    com_irregularidade = (
+        resultado_texto.str.contains("COM IRREGULARIDADE", na=False)
+        | resultado_numero.eq("1")
+    )
+    sem_irregularidade = (
+        resultado_texto.str.contains("SEM IRREGULARIDADE", na=False)
+        | resultado_numero.eq("0")
+    )
+    nao_executado = (
+        resultado_texto.str.contains("NÃO EXECUTADO|NAO EXECUTADO", regex=True, na=False)
+        | resultado_numero.eq("-1")
+    )
+    producao["FISCALIZACAO"] = (com_irregularidade | sem_irregularidade).astype("int8")
+    producao["NORMALIZACAO"] = com_irregularidade.astype("int8")
+    producao["FRAUDE"] = (com_irregularidade & codigo.str.startswith("1")).astype("int8")
+    producao["DEFEITO"] = (com_irregularidade & codigo.str.startswith("2")).astype("int8")
+    producao["COM_IRREGULARIDADE"] = com_irregularidade.astype("int8")
+    producao["SEM_IRREGULARIDADE"] = sem_irregularidade.astype("int8")
+    producao["NAO_EXECUTADO"] = nao_executado.astype("int8")
+
     producao["ANO"] = pd.to_numeric(producao["ANO"], errors="coerce")
     producao["MES_NUM"] = pd.to_numeric(producao["MES_NUM"], errors="coerce")
     for coluna in INDICADORES + [
@@ -327,7 +366,7 @@ with st.sidebar:
         format_func=lambda x: MESES[x].title(),
     )
     datas_mes = producao.loc[
-        producao["MES_NUM"].eq(mes), "DT_CONCLUSAO_DATA"
+        producao["MES_NUM"].eq(mes), "DATA_PRODUCAO"
     ].dropna()
     primeiro_dia_mes = pd.Timestamp(2026, mes, 1).date()
     ultimo_dia_mes = pd.Timestamp(2026, mes, monthrange(2026, mes)[1]).date()
@@ -371,7 +410,7 @@ else:
     data_inicio = data_fim = periodo
 data_inicio_ts = pd.Timestamp(data_inicio)
 data_fim_ts = pd.Timestamp(data_fim) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
-filtro &= producao["DT_CONCLUSAO_DATA"].between(data_inicio_ts, data_fim_ts)
+filtro &= producao["DATA_PRODUCAO"].between(data_inicio_ts, data_fim_ts)
 if projetos:
     filtro &= (
         producao["projeto_perdas"].isin(projetos)
@@ -457,7 +496,7 @@ with graf2:
     fig.update_traces(textinfo="percent+label+value")
     st.plotly_chart(tema_figura(fig), width="stretch")
 
-df["DIA"] = df["DT_CONCLUSAO_DATA"].dt.day
+df["DIA"] = df["DATA_PRODUCAO"].dt.day
 diario = (
     df.groupby("DIA", as_index=False)[
         ["FISCALIZACAO", "FRAUDE", "COM_IRREGULARIDADE", "SEM_IRREGULARIDADE", "NAO_EXECUTADO"]
@@ -602,13 +641,13 @@ with c2:
 
 with st.expander("Consultar produção detalhada"):
     colunas_tabela = [
-        "NR_OS", "DT_CONCLUSAO", "REGIONAL_PAINEL", "GRUPOS",
+        "NR_OS", "DT_Baixa", "DT_CONCLUSAO", "REGIONAL_PAINEL", "GRUPOS",
         "PRX_DESCRICAO", "EMP_SIGLA", "projeto_perdas",
         "RESULTADO_INSPECAO_1", "CODIGO_IRREGULARIDADE_CAMPO",
         "NOME_MUNICIPIO", "UC",
     ]
     colunas_tabela = [c for c in colunas_tabela if c in df.columns]
-    detalhe = df[colunas_tabela].sort_values("DT_CONCLUSAO", ascending=False)
+    detalhe = df[colunas_tabela].sort_values("DT_Baixa", ascending=False)
     st.dataframe(detalhe, width="stretch", hide_index=True, height=430)
     st.download_button(
         "Baixar seleção em CSV",
@@ -623,6 +662,6 @@ horario_atualizacao = datetime.fromtimestamp(
 )
 st.caption(
     f"Dados atualizados em: {horario_atualizacao:%d/%m/%Y às %H:%M} · "
-    "Fonte: ODS de produção · Data de referência: DT_CONCLUSAO · "
+    "Fonte: ODS de produção · Data de referência: DT_Baixa · "
     "Rio Verde e Morrinhos definidos pela coluna POLO."
 )
