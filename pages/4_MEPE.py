@@ -29,7 +29,7 @@ with st.sidebar:
     st.page_link("pages/3_Incremento.py",label="Incremento",icon="📈",width="stretch")
     st.button("🎯 MEPE",disabled=True,width="stretch")
     st.page_link("pages/5_CAPEX_OPEX.py",label="CAPEX e OPEX",icon="💰",width="stretch")
-    st.page_link("pages/6_Validacao_Turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
+    st.page_link("pages/6_Validacao_turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(df0.REGIONAL_MEPE.unique()),default=sorted(df0.REGIONAL_MEPE.unique()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
