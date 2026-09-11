@@ -49,10 +49,7 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["GANHO_MWH"] = base["GANHO_FINAL"] / 1000
     base["ANO_NORM"] = pd.to_numeric(base["ANO_NORM"], errors="coerce").astype("Int64")
     base["REF_MES"] = pd.to_numeric(base["REF_MES"], errors="coerce").astype("Int64")
-    base["REGIONAL_N"] = (
-        base["Regional"].map(normalizar)
-        .str.replace(r"^\d+\s*[.\-]?\s*", "", regex=True)
-    )
+    base["REGIONAL_N"] = base["Regional"].map(normalizar)
     base["GRUPO_N"] = base["Grupo"].map(normalizar)
     base["PROJETO_N"] = base["PROJETO"].fillna("Não informado").replace("", "Não informado")
     base["DESC_N"] = base["Desconsiderar"].map(normalizar)
@@ -91,21 +88,18 @@ def obter_meta_mensal(
     base = metas[
         metas["REGIONAL"].isin(regionais_meta)
         & metas["MES_NUM_META"].isin(meses)
+        & metas["TIPO DA META"].str.contains("INCREMENTO", na=False)
     ].copy()
     saida: dict[int, float] = {}
     for mes in meses:
         linhas_mes = base[base["MES_NUM_META"].eq(mes)]
         total = 0.0
         for grupo in grupos:
-            tipo_exato = {
-                "A": "INCREMENTO AT",
-                "B": "INCREMENTO BT",
-                "IP": "INCREMENTO IP",
-            }.get(grupo, "")
-            linhas_grupo = linhas_mes[
-                linhas_mes["GRUPO"].eq(grupo)
-                & linhas_mes["TIPO DA META"].eq(tipo_exato)
-            ]
+            linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
+            if grupo == "IP" and linhas_grupo.empty:
+                linhas_grupo = linhas_mes[
+                    linhas_mes["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)
+                ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
     return saida
@@ -115,14 +109,13 @@ def tema(fig, altura: int = 400):
     fig.update_layout(
         height=altura, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
-        margin=dict(l=20, r=45, t=90, b=40),
+        margin=dict(l=15, r=20, t=90, b=35),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
-        legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom", entrywidth=.30, entrywidthmode="fraction"),
-        legend_title_text="",
+        legend=dict(orientation="h", x=.5, xanchor="center", y=1.03, yanchor="bottom"),
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
-    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False, automargin=True)
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)", zeroline=False)
     return fig
 
 
@@ -154,41 +147,28 @@ except Exception as erro:
 with st.sidebar:
     st.markdown("### 📈 Incremento")
     st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav-producao" href="/" target="_self">📊 Produção</a>', unsafe_allow_html=True)
-    if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
-        st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
+    st.page_link("app.py", label="Produção", icon="📊", width="stretch")
+    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
-    for pagina, rotulo, icone in [
-        ("4_MEPE.py", "MEPE", "🎯"),
-        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
-    ]:
-        caminho_pagina = BASE_DIR / "pages" / pagina
-        if caminho_pagina.is_file():
-            st.page_link(
-                f"pages/{pagina}",
-                label=rotulo,
-                icon=icone,
-                width="stretch",
-            )
-
+    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
+    st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
+    st.page_link("pages/6_Validacao_Turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
-    # O painel de Incremento deve exibir somente as duas regionais da Sul.
-    regionais_permitidas = ["MORRINHOS", "RIO VERDE"]
-    regionais_existentes = set(base["REGIONAL_N"].dropna().astype(str))
-    regionais_disp = [r for r in regionais_permitidas if r in regionais_existentes]
-    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp, key="incremento_regionais")
+    regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
+    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
     grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
-    grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp, key="incremento_grupos")
+    grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
     meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
-    meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title(), key="incremento_meses")
+    meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
+    projetos_disp = sorted(base["PROJETO_N"].dropna().unique())
+    projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
     if st.button("Atualizar leitura das bases", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
 filtro = (
     base["REGIONAL_N"].isin(regionais) & base["GRUPO_N"].isin(grupos)
-    & base["REF_MES"].isin(meses)
+    & base["REF_MES"].isin(meses) & base["PROJETO_N"].isin(projetos)
 )
 df = base.loc[filtro].copy()
 incremento = df[df["TIPO_GANHO"].eq("Incremento")].copy()
@@ -238,7 +218,7 @@ with c1:
         category_orders={"Tipo": ["Meta", "Realizado"]},
         color_discrete_map={"Meta": "#64748B", "Realizado": "#38BDF8"},
     )
-    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
+    fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
 with c2:
     evolucao = pd.DataFrame({"Mês número": meses})
@@ -254,7 +234,7 @@ with c2:
         title="Ganho mensal", text="Rótulo",
         color_discrete_map={"Crescimento": "#34D399", "Queda": "#F87171", "Primeiro mês": "#38BDF8"},
     )
-    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
+    fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
 
 t1, t2 = st.columns(2)
@@ -267,14 +247,14 @@ with t1:
     ticket_projeto["Rótulo"] = ticket_projeto["Ticket médio (MWh)"].map(formatar_mwh)
     fig = px.bar(ticket_projeto, x="Ticket médio (MWh)", y="PROJETO_N", orientation="h",
                  title="Ticket médio por projeto", text="Rótulo", color_discrete_sequence=["#A78BFA"])
-    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
+    fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
 with t2:
     grupo = incremento.groupby("GRUPO_N", as_index=False)["GANHO_MWH"].sum()
     grupo["Rótulo"] = grupo["GANHO_MWH"].map(formatar_mwh)
     fig = px.bar(grupo, x="GRUPO_N", y="GANHO_MWH", color="GRUPO_N", text="Rótulo",
                  title="Incremento por grupo", color_discrete_map={"A": "#38BDF8", "B": "#34D399", "IP": "#F59E0B"})
-    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle", showlegend=False)
+    fig.update_traces(textposition="outside", cliponaxis=False, showlegend=False)
     st.plotly_chart(tema(fig), width="stretch")
 
 d1, d2 = st.columns(2)
@@ -285,7 +265,7 @@ with d1:
     fig = px.bar(motivos, x="Registros", y="MOTIVO_DESCONSIDERACAO", orientation="h",
                  title="Incrementos desconsiderados e motivos", text="Registros",
                  color_discrete_sequence=["#F87171"], hover_data={"Energia_MWh": ":.2f"})
-    fig.update_traces(textposition="auto", cliponaxis=False, insidetextanchor="middle")
+    fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
 with d2:
     residual_graf = residual.groupby(["ANO_NORM", "PROJETO_N"], as_index=False)["GANHO_MWH"].sum()
