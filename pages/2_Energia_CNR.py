@@ -137,18 +137,15 @@ def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses
     base = metas[
         metas["REGIONAL"].isin(regionais_meta)
         & metas["MES_NUM_META"].isin(meses)
-        & metas["TIPO DA META"].str.contains("CNR", na=False)
     ].copy()
+    tipos_meta = {"A": "CNR AT", "B": "CNR BT", "IP": "CNR IP"}
     resultado: dict[str, float] = {}
     for grupo in grupos:
-        por_coluna = base[base["GRUPO"].eq(grupo)]
-        if grupo == "IP":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)]
-        elif grupo == "A":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bAT\b|GRUPO A", regex=True, na=False)]
-        else:
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bBT\b|GRUPO B", regex=True, na=False)]
-        linhas = por_coluna if not por_coluna.empty else por_tipo
+        tipo_exato = tipos_meta.get(grupo)
+        linhas = base[
+            base["GRUPO"].eq(grupo)
+            & base["TIPO DA META"].eq(tipo_exato)
+        ]
         # A planilha de metas armazena energia em kWh; o painel exibe MWh.
         resultado[grupo] = float(linhas["QUANTIDADE"].sum()) / 1000
     return resultado
@@ -160,10 +157,7 @@ def tema(fig, altura: int = 390):
         font=dict(color="#CAD5E2", family="Inter, sans-serif"),
         margin=dict(l=20, r=45, t=90, b=40),
         title=dict(y=.98, x=.02, xanchor="left", yanchor="top"),
-        legend=dict(
-            orientation="h", y=1.03, x=.5, xanchor="center", yanchor="bottom",
-            entrywidth=.30, entrywidthmode="fraction",
-        ),
+        legend=dict(orientation="h", y=1.03, x=0, yanchor="bottom"),
         legend_title_text="",
         hoverlabel=dict(bgcolor="#101D2E", font_color="white"),
     )
@@ -212,35 +206,25 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.button("⚡ Energia CNR", disabled=True, width="stretch")
-    for pagina, rotulo, icone in [
-        ("pages/3_Incremento.py", "Incremento", "📈"),
-        ("pages/4_MEPE.py", "MEPE", "🎯"),
-        ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
-    ]:
-        if (BASE_DIR / pagina).is_file():
-            st.page_link(
-                pagina,
-                label=rotulo,
-                icon=icone,
-                width="stretch",
-            )
-
+    st.page_link(
+        "pages/3_Incremento.py", label="Incremento", icon="📈",
+        width="stretch",
+    )
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
-    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp, key="cnr_regionais")
+    regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
     grupos_disp = [g for g in ["A", "B", "IP"] if g in set(cnr["GRUPO"])]
-    grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp, key="cnr_grupos")
+    grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp)
     meses_disp = sorted(cnr["FISCAL_CICLO_STATUS_MES"].dropna().astype(int).unique())
-    meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title(), key="cnr_meses")
+    meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title())
     status_disp = [s for s in CORES_STATUS if s in set(cnr["STATUS_ROTULO"])]
-    status = st.multiselect("Status", status_disp, default=status_disp, key="cnr_status")
+    status = st.multiselect("Status", status_disp, default=status_disp)
     projetos_disp = sorted(cnr["PROJETO"].astype(str).unique())
-    projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp, key="cnr_projetos")
+    projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
     irregularidades_disp = sorted(cnr["IRREGULARIDADE"].astype(str).unique())
-    irregularidades = st.multiselect("Irregularidade", irregularidades_disp, default=irregularidades_disp, key="cnr_irregularidades")
+    irregularidades = st.multiselect("Irregularidade", irregularidades_disp, default=irregularidades_disp)
     ligacoes_disp = sorted(cnr["LIGACAO"].astype(str).unique())
-    ligacoes = st.multiselect("Tipo de ligação", ligacoes_disp, default=ligacoes_disp, key="cnr_ligacoes")
+    ligacoes = st.multiselect("Tipo de ligação", ligacoes_disp, default=ligacoes_disp)
     st.markdown("---")
     if st.button("Atualizar leitura das bases", width="stretch"):
         st.cache_data.clear()
@@ -261,7 +245,10 @@ filtro = (
 )
 df = cnr.loc[filtro].copy()
 faturados = df[df["STATUS_ROTULO"].eq("Faturada")].copy()
-cancelados = df[df["STATUS_ROTULO"].isin(["Cancelamento", "Cancelamento Estratégico"])].copy()
+# Regra oficial do Real CNR: status 1 Faturado menos status 2 Cancelamento.
+# O status 3 (Cancelamento Estratégico) permanece disponível para análise,
+# mas não entra no cálculo do realizado.
+cancelados = df[df["STATUS_ROTULO"].eq("Cancelamento")].copy()
 
 st.markdown('<div class="eyebrow">VISÃO ENERGÉTICA</div>', unsafe_allow_html=True)
 st.markdown('<div class="page-title">Energia CNR</div>', unsafe_allow_html=True)
@@ -295,7 +282,7 @@ energia_faturada_mwh = float(faturados["CNR_ENERGIA"].sum()) / 1000
 energia_cancelada_mwh = float(cancelados["CNR_ENERGIA"].abs().sum()) / 1000
 energia_real_mwh = energia_faturada_mwh - energia_cancelada_mwh
 qtd_processos = int(df["INSPECAO_ID"].nunique())
-qtd_calculadas = qtd_processos
+qtd_calculadas = int(faturados["INSPECAO_ID"].nunique())
 qtd_cancelados = int(cancelados["INSPECAO_ID"].nunique())
 ticket_mwh = energia_real_mwh / qtd_calculadas if qtd_calculadas else 0
 taxa_cancelamento = qtd_cancelados / qtd_processos * 100 if qtd_processos else 0
@@ -412,7 +399,7 @@ with m2:
     fig = tema(fig)
     fig.update_layout(legend=dict(
         title_text="", orientation="h", x=.5, xanchor="center",
-        y=1.03, yanchor="bottom", entrywidth=.30, entrywidthmode="fraction",
+        y=1.03, yanchor="bottom",
     ))
     selecao_perfil = st.plotly_chart(
         fig, width="stretch", key="cnr_perfil", on_select="rerun", selection_mode="points"
