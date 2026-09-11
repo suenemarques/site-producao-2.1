@@ -49,7 +49,10 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["GANHO_MWH"] = base["GANHO_FINAL"] / 1000
     base["ANO_NORM"] = pd.to_numeric(base["ANO_NORM"], errors="coerce").astype("Int64")
     base["REF_MES"] = pd.to_numeric(base["REF_MES"], errors="coerce").astype("Int64")
-    base["REGIONAL_N"] = base["Regional"].map(normalizar)
+    base["REGIONAL_N"] = (
+        base["Regional"].map(normalizar)
+        .str.replace(r"^\d+\s*[.\-]?\s*", "", regex=True)
+    )
     base["GRUPO_N"] = base["Grupo"].map(normalizar)
     base["PROJETO_N"] = base["PROJETO"].fillna("Não informado").replace("", "Não informado")
     base["DESC_N"] = base["Desconsiderar"].map(normalizar)
@@ -88,7 +91,6 @@ def obter_meta_mensal(
     base = metas[
         metas["REGIONAL"].isin(regionais_meta)
         & metas["MES_NUM_META"].isin(meses)
-        & metas["TIPO DA META"].str.contains("INCREMENTO", na=False)
     ].copy()
     saida: dict[int, float] = {}
     for mes in meses:
@@ -101,9 +103,8 @@ def obter_meta_mensal(
                 "IP": "INCREMENTO IP",
             }.get(grupo, "")
             linhas_grupo = linhas_mes[
-                linhas_mes["TIPO DA META"].isin(
-                    {tipo_exato, f"META {tipo_exato}"}
-                )
+                linhas_mes["GRUPO"].eq(grupo)
+                & linhas_mes["TIPO DA META"].eq(tipo_exato)
             ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
@@ -172,7 +173,10 @@ with st.sidebar:
             )
 
     st.markdown("---")
-    regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
+    # O painel de Incremento deve exibir somente as duas regionais da Sul.
+    regionais_permitidas = ["MORRINHOS", "RIO VERDE"]
+    regionais_existentes = set(base["REGIONAL_N"].dropna().astype(str))
+    regionais_disp = [r for r in regionais_permitidas if r in regionais_existentes]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp, key="incremento_regionais")
     grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp, key="incremento_grupos")
