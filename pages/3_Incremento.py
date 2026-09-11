@@ -152,7 +152,7 @@ with st.sidebar:
     st.button("📈 Incremento", disabled=True, width="stretch")
     st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
     st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
-    st.page_link("pages/6_Validacao_Turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
+    st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
