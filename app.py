@@ -115,14 +115,9 @@ def carregar_bases() -> tuple[pd.DataFrame, pd.DataFrame]:
     producao.loc[polo.str.contains("MORRINHOS"), "REGIONAL_PAINEL"] = "MORRINHOS"
 
     grupo = producao["GRUPOS"].fillna("").astype(str).str.upper()
-    projeto_painel = producao["projeto_perdas"].map(normalizar_servico)
-    projetos_grupo_b = {
-        "ALVO PROJETO", "VOL DIREC", "VOLUNTARIO DIRECIONADO",
-        "ALVO LEITURA", "CLANDESTINO", "CLADENSTINO", "DS", "VOLUNTARIO",
-    }
     producao["GRUPO_PAINEL"] = ""
     producao.loc[grupo.str.startswith("A"), "GRUPO_PAINEL"] = "A"
-    producao.loc[projeto_painel.isin(projetos_grupo_b), "GRUPO_PAINEL"] = "B"
+    producao.loc[grupo.str.startswith("B"), "GRUPO_PAINEL"] = "B"
 
     coluna_equipe = "PRX_DESCRICAO" if "PRX_DESCRICAO" in producao.columns else "PRX"
     equipe_prx = producao[coluna_equipe].fillna("").astype(str).str.upper().str.strip()
@@ -131,14 +126,6 @@ def carregar_bases() -> tuple[pd.DataFrame, pd.DataFrame]:
     producao.loc[producao["EQUIPE_GRUPO_A"], "GRUPO_PAINEL"] = "A"
     producao.loc[equipe_prx.isin({f"SULA{i}M" for i in range(200, 204)}), "REGIONAL_PAINEL"] = "MORRINHOS"
     producao.loc[equipe_prx.isin({f"SULA{i}M" for i in range(204, 208)}), "REGIONAL_PAINEL"] = "RIO VERDE"
-
-    # Clandestino pertence ao Grupo B. Se POLO ou GRUPOS vierem vazios ou
-    # inconsistentes na ODS, a equipe define a regional e o projeto não some.
-    projeto_n = producao["projeto_perdas"].map(normalizar_texto)
-    clandestino = projeto_n.isin({"CLANDESTINO", "CLADENSTINO"})
-    producao.loc[clandestino, "GRUPO_PAINEL"] = "B"
-    producao.loc[clandestino & equipe_prx.str.startswith("RIOF"), "REGIONAL_PAINEL"] = "RIO VERDE"
-    producao.loc[clandestino & equipe_prx.str.startswith("MORF"), "REGIONAL_PAINEL"] = "MORRINHOS"
     descricoes = producao.get("DESCRICAO_STPOS", pd.Series("", index=producao.index))
     resultados = producao.get("RESULTADO_INSPECAO_1", pd.Series("", index=producao.index))
     producao["CATEGORIA_GA"] = [categorizar_servico_grupo_a(d, r) for d, r in zip(descricoes, resultados)]
@@ -306,28 +293,11 @@ with st.sidebar:
     st.markdown("### ⚡ Produção 2.0")
     st.caption("Recuperação de Energia · Sul")
     st.button("📊 Produção", disabled=True, width="stretch")
-
-    def link_pagina(nome_arquivo: str, rotulo: str, icone: str) -> None:
-        caminho = BASE_DIR / "pages" / nome_arquivo
-        if caminho.is_file():
-            st.page_link(
-                f"pages/{nome_arquivo}",
-                label=rotulo,
-                icon=icone,
-                width="stretch",
-            )
-        else:
-            st.error(f"Página não encontrada: pages/{nome_arquivo}")
-
-    for pagina, rotulo, icone in [
-        ("2_Energia_CNR.py", "Energia CNR", "⚡"),
-        ("3_Incremento.py", "Incremento", "📈"),
-        ("4_MEPE.py", "MEPE", "🎯"),
-        ("5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
-        ("6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
-    ]:
-        link_pagina(pagina, rotulo, icone)
-
+    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
+    st.page_link("pages/3_Incremento.py", label="Incremento", icon="📈", width="stretch")
+    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
+    st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
+    st.page_link("pages/6_Validacao_Turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
