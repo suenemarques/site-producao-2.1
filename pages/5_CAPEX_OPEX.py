@@ -23,11 +23,12 @@ def carregar():
 d0=carregar()
 with st.sidebar:
     st.markdown("### 💰 CAPEX e OPEX"); st.caption("Somente equipes RIOF e MORF")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
+    st.page_link("app.py",label="Produção",icon="📊",width="stretch")
+    st.page_link("pages/2_Energia_CNR.py",label="Energia CNR",icon="⚡",width="stretch")
+    st.page_link("pages/3_Incremento.py",label="Incremento",icon="📈",width="stretch")
+    st.page_link("pages/4_MEPE.py",label="MEPE",icon="🎯",width="stretch")
     st.button("💰 CAPEX e OPEX",disabled=True,width="stretch")
-    if (BASE/"pages"/"6_Validacao_Turnos.py").is_file(): st.page_link("pages/6_Validacao_Turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
+    st.page_link("pages/6_Validacao_Turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(d0.REGIONAL.unique()),default=sorted(d0.REGIONAL.unique()))
     meses=st.multiselect("Mês",sorted(d0.MES_REF.unique()),default=sorted(d0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
