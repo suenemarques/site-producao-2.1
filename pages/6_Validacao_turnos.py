@@ -21,9 +21,11 @@ def carregar():
 d0=carregar(); meses_disp=sorted(d0.DATA_TURNO.dt.month.dropna().astype(int).unique())
 with st.sidebar:
     st.markdown("### 🕒 Validação de Turnos"); st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯"),("5_CAPEX_OPEX.py","CAPEX e OPEX","💰")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
+    st.page_link("app.py",label="Produção",icon="📊",width="stretch")
+    st.page_link("pages/2_Energia_CNR.py",label="Energia CNR",icon="⚡",width="stretch")
+    st.page_link("pages/3_Incremento.py",label="Incremento",icon="📈",width="stretch")
+    st.page_link("pages/4_MEPE.py",label="MEPE",icon="🎯",width="stretch")
+    st.page_link("pages/5_CAPEX_OPEX.py",label="CAPEX e OPEX",icon="💰",width="stretch")
     st.button("🕒 Validação de Turnos",disabled=True,width="stretch"); st.markdown("---")
     regs=st.multiselect("Regional",sorted(d0.REGIONAL_TURNO.unique()),default=sorted(d0.REGIONAL_TURNO.unique()))
     mes=st.selectbox("Mês",meses_disp,index=len(meses_disp)-1,format_func=lambda x:MESES[x])
