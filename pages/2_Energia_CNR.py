@@ -32,6 +32,50 @@ def normalizar(valor: object) -> str:
     return re.sub(r"\s+", " ", texto)
 
 
+def normalizar_regional(valor: object) -> str:
+    """Iguala '03.Morrinhos' a 'MORRINHOS' e '04.Rio Verde' a 'RIO VERDE'."""
+    texto = normalizar(valor)
+    return re.sub(r"^\d+\s*[.\-_/]*\s*", "", texto).strip()
+
+
+def normalizar_grupo(valor: object) -> str:
+    texto = normalizar(valor)
+    texto = re.sub(r"^GRUPO\s+", "", texto).strip()
+    return {"AT": "A", "BT": "B"}.get(texto, texto)
+
+
+def converter_mes(valor: object):
+    """Converte mês numérico ou por extenso para 1..12."""
+    if pd.isna(valor):
+        return pd.NA
+    if isinstance(valor, (int, float)):
+        numero = int(valor)
+        return numero if 1 <= numero <= 12 else pd.NA
+    texto = normalizar(valor)
+    mapa = {normalizar(nome): numero for numero, nome in MESES.items()}
+    if texto in mapa:
+        return mapa[texto]
+    numero = pd.to_numeric(texto.replace(",", "."), errors="coerce")
+    if pd.notna(numero) and 1 <= int(numero) <= 12:
+        return int(numero)
+    return pd.NA
+
+
+def converter_quantidade(valor: object) -> float:
+    """Lê números do Excel e também textos no padrão brasileiro."""
+    if pd.isna(valor) or str(valor).strip() == "":
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    texto = str(valor).strip().replace(" ", "")
+    if "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", texto):
+        texto = texto.replace(".", "")
+    numero = pd.to_numeric(texto, errors="coerce")
+    return float(numero) if pd.notna(numero) else 0.0
+
+
 def rotulo_status(valor: object) -> str:
     status = normalizar(valor)
     if status.startswith("1") or "FATUR" in status:
@@ -64,32 +108,46 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     cnr["MES_NOME"] = cnr["FISCAL_CICLO_STATUS_MES"].map(MESES)
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [str(c).strip() for c in metas.columns]
-    metas.rename(columns={"MÊS": "MES"}, inplace=True)
+    metas.columns = [normalizar(c) for c in metas.columns]
+    metas.rename(columns={"MES": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
             metas[coluna] = ""
-        metas[coluna] = metas[coluna].map(normalizar)
-    metas["QUANTIDADE"] = pd.to_numeric(metas.get("QUANTIDADE", 0), errors="coerce").fillna(0)
+    metas["REGIONAL_N"] = metas["REGIONAL"].map(normalizar_regional)
+    metas["MES_NUM"] = metas["MES"].map(converter_mes).astype("Int64")
+    metas["GRUPO_N"] = metas["GRUPO"].map(normalizar_grupo)
+    metas["TIPO_META_N"] = metas["TIPO DA META"].map(normalizar)
+    if "QUANTIDADE" not in metas.columns:
+        metas["QUANTIDADE"] = 0.0
+    metas["QUANTIDADE"] = metas["QUANTIDADE"].map(converter_quantidade)
     return cnr, metas
 
 
 def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses: list[int]) -> dict[str, float]:
+    regionais_n = {normalizar_regional(regional) for regional in regionais}
+    meses_n = {int(mes) for mes in meses}
     base = metas[
-        metas["REGIONAL"].isin(regionais)
-        & metas["MES"].isin([MESES[m] for m in meses])
-        & metas["TIPO DA META"].str.contains("CNR", na=False)
+        metas["REGIONAL_N"].isin(regionais_n)
+        & metas["MES_NUM"].isin(meses_n)
     ].copy()
+
+    # Regra oficial da planilha METAS 2026:
+    # A  -> CNR AT
+    # B  -> CNR BT
+    # IP -> CNR BT, usando a linha cujo GRUPO é IP
+    # CNR POR EQUIPE é exclusivo do MEPE e não entra nesta tela.
+    tipo_por_grupo = {"A": "CNR AT", "B": "CNR BT", "IP": "CNR BT"}
     resultado: dict[str, float] = {}
     for grupo in grupos:
-        por_coluna = base[base["GRUPO"].eq(grupo)]
-        if grupo == "IP":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)]
-        elif grupo == "A":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bAT\b|GRUPO A", regex=True, na=False)]
-        else:
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bBT\b|GRUPO B", regex=True, na=False)]
-        linhas = por_coluna if not por_coluna.empty else por_tipo
+        grupo_n = normalizar_grupo(grupo)
+        tipo_meta = tipo_por_grupo.get(grupo_n)
+        if not tipo_meta:
+            resultado[grupo] = 0.0
+            continue
+        linhas = base[
+            base["GRUPO_N"].eq(grupo_n)
+            & base["TIPO_META_N"].eq(tipo_meta)
+        ]
         resultado[grupo] = float(linhas["QUANTIDADE"].sum())
     return resultado
 
