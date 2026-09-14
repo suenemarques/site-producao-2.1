@@ -202,7 +202,16 @@ with st.sidebar:
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
+    grupos_dados = set(base["GRUPO_N"].dropna())
+    grupos_metas = set(
+        metas.loc[
+            metas["TIPO_META_N"].isin(
+                {"INCREMENTO AT", "INCREMENTO BT", "INCREMENTO IP"}
+            ),
+            "GRUPO_N",
+        ].dropna()
+    )
+    grupos_disp = [g for g in ["A", "B", "IP"] if g in (grupos_dados | grupos_metas)]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
     meses_base = set(base["REF_MES"].dropna().astype(int).tolist())
     meses_meta = set(metas["MES_NUM_META"].dropna().astype(int).tolist())
