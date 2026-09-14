@@ -203,7 +203,14 @@ with st.sidebar:
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(cnr["GRUPO"])]
+    grupos_dados = set(cnr["GRUPO"].dropna())
+    grupos_metas = set(
+        metas.loc[
+            metas["TIPO_META_N"].isin({"CNR AT", "CNR BT", "CNR IP"}),
+            "GRUPO_N",
+        ].dropna()
+    )
+    grupos_disp = [g for g in ["A", "B", "IP"] if g in (grupos_dados | grupos_metas)]
     grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp)
     meses_disp = sorted(cnr["FISCAL_CICLO_STATUS_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title())
