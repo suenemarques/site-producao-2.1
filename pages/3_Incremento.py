@@ -131,7 +131,7 @@ def obter_meta_mensal(
     tipo_por_grupo = {
         "A": "INCREMENTO AT",
         "B": "INCREMENTO BT",
-        "IP": "INCREMENTO BT",
+        "IP": "INCREMENTO IP",
     }
     saida: dict[int, float] = {}
     for mes in meses:
