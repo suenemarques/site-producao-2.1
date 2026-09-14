@@ -134,9 +134,9 @@ def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses
     # Regra oficial da planilha METAS 2026:
     # A  -> CNR AT
     # B  -> CNR BT
-    # IP -> CNR BT, usando a linha cujo GRUPO é IP
+    # IP -> CNR IP
     # CNR POR EQUIPE é exclusivo do MEPE e não entra nesta tela.
-    tipo_por_grupo = {"A": "CNR AT", "B": "CNR BT", "IP": "CNR BT"}
+    tipo_por_grupo = {"A": "CNR AT", "B": "CNR BT", "IP": "CNR IP"}
     resultado: dict[str, float] = {}
     for grupo in grupos:
         grupo_n = normalizar_grupo(grupo)
