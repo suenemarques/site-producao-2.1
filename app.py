@@ -126,10 +126,33 @@ def carregar_bases(
     producao.loc[polo.str.contains("RIO VERDE"), "REGIONAL_PAINEL"] = "RIO VERDE"
     producao.loc[polo.str.contains("MORRINHOS"), "REGIONAL_PAINEL"] = "MORRINHOS"
 
-    grupo = producao["GRUPOS"].fillna("").astype(str).str.upper()
-    producao["GRUPO_PAINEL"] = ""
+    grupo = producao["GRUPOS"].fillna("").astype(str).str.upper().str.strip()
+    producao["GRUPO_PAINEL"] = producao.get(
+        "GRUPO_SITE", pd.Series("", index=producao.index)
+    ).fillna("").astype(str).str.upper().str.strip()
     producao.loc[grupo.str.startswith("A"), "GRUPO_PAINEL"] = "A"
     producao.loc[grupo.str.startswith("B"), "GRUPO_PAINEL"] = "B"
+
+    # Alguns serviços, principalmente Clandestino, chegam com GRUPOS vazio ou
+    # diferente de B. A classificação operacional deve considerar o projeto.
+    projeto_normalizado = producao.get(
+        "projeto_perdas", pd.Series("", index=producao.index)
+    ).map(normalizar_servico)
+    projetos_grupo_b = {
+        "ALVO PROJETO",
+        "ALVO LEITURA",
+        "VOL DIREC",
+        "VOLUNTARIO DIRECIONADO",
+        "VOLUNTARIO",
+        "CLANDESTINO",
+        "CLANDESTINO CNR",
+        "CLADENSTINO",
+        "DS",
+    }
+    mascara_grupo_b = projeto_normalizado.isin(projetos_grupo_b) | (
+        projeto_normalizado.str.contains("CLANDESTIN", na=False)
+    )
+    producao.loc[mascara_grupo_b, "GRUPO_PAINEL"] = "B"
 
     coluna_equipe = "PRX_DESCRICAO" if "PRX_DESCRICAO" in producao.columns else "PRX"
     equipe_prx = producao[coluna_equipe].fillna("").astype(str).str.upper().str.strip()
