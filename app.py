@@ -13,6 +13,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
+
 
 st.set_page_config(
     page_title="Produção 2.0",
@@ -311,6 +313,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+usuario = exigir_login()
 
 if st.sidebar.button("🔄 Atualizar dados agora", width="stretch"):
     st.cache_data.clear()
@@ -325,6 +328,9 @@ except Exception as erro:
     st.error(f"Não foi possível carregar as bases: {erro}")
     st.stop()
 
+producao = filtrar_por_acesso(
+    producao, "REGIONAL_PAINEL", usuario["ACESSO"]
+)
 producao = producao[producao["REGIONAL_PAINEL"].isin(["RIO VERDE", "MORRINHOS"])]
 meses_disponiveis = sorted(producao["MES_NUM"].dropna().astype(int).unique().tolist())
 if not meses_disponiveis:
