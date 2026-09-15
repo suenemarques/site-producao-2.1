@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
+
 st.set_page_config(page_title="MEPE", page_icon="🎯", layout="wide")
 BASE = Path(__file__).resolve().parents[1]
 ARQ = BASE / "dados" / "mepe.parquet"
@@ -16,20 +18,22 @@ def tema(fig, h=420):
     return fig
 
 st.markdown("""<style>.stApp{background:#07111F;color:#E8EEF6}[data-testid="stSidebar"]{background:#0B1728;border-right:1px solid #1E3047}[data-testid="stSidebarNav"]{display:none}.block-container{padding-top:1.5rem;max-width:1550px}div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:.5rem}.nav{display:block;padding:.55rem;margin:.25rem 0;border:1px solid #46556A;border-radius:.5rem;text-align:center;color:white!important;text-decoration:none!important}</style>""",unsafe_allow_html=True)
+usuario = exigir_login()
 if not ARQ.is_file():
     st.error("Base MEPE não encontrada."); st.info("Execute o Atualizador Único V13 para gerar dados/mepe.parquet."); st.stop()
 
 @st.cache_data(ttl=900)
 def carregar(): return pd.read_parquet(ARQ)
 df0 = carregar()
+df0 = filtrar_por_acesso(df0, "REGIONAL_MEPE", usuario["ACESSO"])
 with st.sidebar:
     st.markdown("### 🎯 MEPE"); st.caption("Recuperação de Energia · Sul")
-    st.page_link("app.py",label="Produção",icon="📊",width="stretch")
-    st.page_link("pages/2_Energia_CNR.py",label="Energia CNR",icon="⚡",width="stretch")
-    st.page_link("pages/3_Incremento.py",label="Incremento",icon="📈",width="stretch")
+    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
+    for arq,label,icone in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈")]:
+        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
     st.button("🎯 MEPE",disabled=True,width="stretch")
-    st.page_link("pages/5_CAPEX_OPEX.py",label="CAPEX e OPEX",icon="💰",width="stretch")
-    st.page_link("pages/6_Validacao_turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
+    for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_Turnos.py","Validação de Turnos","🕒")]:
+        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(df0.REGIONAL_MEPE.unique()),default=sorted(df0.REGIONAL_MEPE.unique()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
