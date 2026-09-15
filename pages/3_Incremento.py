@@ -8,6 +8,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
+
 
 st.set_page_config(page_title="Incremento", page_icon="📈", layout="wide")
 
@@ -27,49 +29,6 @@ def normalizar(valor: object) -> str:
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return re.sub(r"\s+", " ", texto)
-
-
-def normalizar_regional(valor: object) -> str:
-    """Iguala '03.Morrinhos' a 'MORRINHOS' e '04.Rio Verde' a 'RIO VERDE'."""
-    texto = normalizar(valor)
-    return re.sub(r"^\d+\s*[.\-_/]*\s*", "", texto).strip()
-
-
-def normalizar_grupo(valor: object) -> str:
-    texto = normalizar(valor)
-    texto = re.sub(r"^GRUPO\s+", "", texto).strip()
-    return {"AT": "A", "BT": "B"}.get(texto, texto)
-
-
-def converter_mes(valor: object):
-    if pd.isna(valor):
-        return pd.NA
-    if isinstance(valor, (int, float)):
-        numero = int(valor)
-        return numero if 1 <= numero <= 12 else pd.NA
-    texto = normalizar(valor)
-    mapa = {normalizar(nome): numero for numero, nome in MESES.items()}
-    if texto in mapa:
-        return mapa[texto]
-    numero = pd.to_numeric(texto.replace(",", "."), errors="coerce")
-    if pd.notna(numero) and 1 <= int(numero) <= 12:
-        return int(numero)
-    return pd.NA
-
-
-def converter_quantidade(valor: object) -> float:
-    """Aceita números do Excel e textos no padrão brasileiro."""
-    if pd.isna(valor) or str(valor).strip() == "":
-        return 0.0
-    if isinstance(valor, (int, float)):
-        return float(valor)
-    texto = str(valor).strip().replace(" ", "")
-    if "," in texto:
-        texto = texto.replace(".", "").replace(",", ".")
-    elif re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", texto):
-        texto = texto.replace(".", "")
-    numero = pd.to_numeric(texto, errors="coerce")
-    return float(numero) if pd.notna(numero) else 0.0
 
 
 def formatar_numero(valor: float, casas: int = 2) -> str:
@@ -106,46 +65,43 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["MES_NOME"] = base["REF_MES"].map(lambda m: MESES.get(int(m), "") if pd.notna(m) else "")
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [normalizar(c) for c in metas.columns]
+    metas.columns = [str(c).strip() for c in metas.columns]
+    metas.rename(columns={"MÊS": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
             metas[coluna] = ""
-    metas["REGIONAL_N"] = metas["REGIONAL"].map(normalizar_regional)
-    metas["MES_NUM_META"] = metas["MES"].map(converter_mes).astype("Int64")
-    metas["GRUPO_N"] = metas["GRUPO"].map(normalizar_grupo)
-    metas["TIPO_META_N"] = metas["TIPO DA META"].map(normalizar)
-    if "QUANTIDADE" not in metas.columns:
-        metas["QUANTIDADE"] = 0.0
-    metas["QUANTIDADE"] = metas["QUANTIDADE"].map(converter_quantidade)
+        metas[coluna] = metas[coluna].map(normalizar)
+    mapa_mes = {normalizar(nome): numero for numero, nome in MESES.items()}
+    metas["MES_NUM_META"] = metas["MES"].map(mapa_mes)
+    metas.loc[metas["MES_NUM_META"].isna(), "MES_NUM_META"] = pd.to_numeric(
+        metas.loc[metas["MES_NUM_META"].isna(), "MES"], errors="coerce"
+    )
+    metas["QUANTIDADE"] = pd.to_numeric(metas.get("QUANTIDADE", 0), errors="coerce").fillna(0)
     return base, metas
 
 
 def obter_meta_mensal(
     metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses: list[int]
 ) -> dict[int, float]:
-    regionais_meta = {normalizar_regional(regional) for regional in regionais}
-    base = metas[
-        metas["REGIONAL_N"].isin(regionais_meta)
-        & metas["MES_NUM_META"].isin(meses)
-    ].copy()
-    tipo_por_grupo = {
-        "A": "INCREMENTO AT",
-        "B": "INCREMENTO BT",
-        "IP": "INCREMENTO IP",
+    regionais_meta = {
+        re.sub(r"^\d+\s*[.\-]?\s*", "", normalizar(regional))
+        for regional in regionais
     }
+    base = metas[
+        metas["REGIONAL"].isin(regionais_meta)
+        & metas["MES_NUM_META"].isin(meses)
+        & metas["TIPO DA META"].str.contains("INCREMENTO", na=False)
+    ].copy()
     saida: dict[int, float] = {}
     for mes in meses:
         linhas_mes = base[base["MES_NUM_META"].eq(mes)]
         total = 0.0
         for grupo in grupos:
-            grupo_n = normalizar_grupo(grupo)
-            tipo_meta = tipo_por_grupo.get(grupo_n)
-            if not tipo_meta:
-                continue
-            linhas_grupo = linhas_mes[
-                linhas_mes["GRUPO_N"].eq(grupo_n)
-                & linhas_mes["TIPO_META_N"].eq(tipo_meta)
-            ]
+            linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
+            if grupo == "IP" and linhas_grupo.empty:
+                linhas_grupo = linhas_mes[
+                    linhas_mes["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)
+                ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
     return saida
@@ -183,6 +139,8 @@ div[data-testid="stMetric"] {background:#0D1A2B;border:1px solid #20334A;border-
 </style>
 """, unsafe_allow_html=True)
 
+usuario = exigir_login()
+
 try:
     base, metas = carregar()
 except Exception as erro:
@@ -190,32 +148,21 @@ except Exception as erro:
     st.info("Execute o atualizador único para gerar dados/incremento_2026.parquet.")
     st.stop()
 
+base = filtrar_por_acesso(base, "REGIONAL_N", usuario["ACESSO"])
+
 with st.sidebar:
     st.markdown("### 📈 Incremento")
     st.caption("Recuperação de Energia · Sul")
-    st.page_link("app.py", label="Produção", icon="📊", width="stretch")
-    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
+    st.markdown('<a class="nav-producao" href="/" target="_self">📊 Produção</a>', unsafe_allow_html=True)
+    if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
+        st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
-    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
-    st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
-    st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    grupos_dados = set(base["GRUPO_N"].dropna())
-    grupos_metas = set(
-        metas.loc[
-            metas["TIPO_META_N"].isin(
-                {"INCREMENTO AT", "INCREMENTO BT", "INCREMENTO IP"}
-            ),
-            "GRUPO_N",
-        ].dropna()
-    )
-    grupos_disp = [g for g in ["A", "B", "IP"] if g in (grupos_dados | grupos_metas)]
+    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
-    meses_base = set(base["REF_MES"].dropna().astype(int).tolist())
-    meses_meta = set(metas["MES_NUM_META"].dropna().astype(int).tolist())
-    meses_disp = sorted(meses_base | meses_meta)
+    meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
     projetos_disp = sorted(base["PROJETO_N"].dropna().unique())
     projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
@@ -231,7 +178,6 @@ df = base.loc[filtro].copy()
 incremento = df[df["TIPO_GANHO"].eq("Incremento")].copy()
 residual = df[df["TIPO_GANHO"].eq("Residual")].copy()
 desconsiderado = df[df["TIPO_GANHO"].eq("Desconsiderado")].copy()
-meses_ordenados = sorted({int(mes) for mes in meses})
 
 st.markdown('<div class="eyebrow">VISÃO ENERGÉTICA</div>', unsafe_allow_html=True)
 st.markdown('<div class="page-title">Incremento</div>', unsafe_allow_html=True)
@@ -240,7 +186,7 @@ st.markdown(
     f'{", ".join(regionais) if regionais else "Nenhuma regional"}</div>', unsafe_allow_html=True
 )
 
-metas_mes = obter_meta_mensal(metas, regionais, grupos, meses_ordenados)
+metas_mes = obter_meta_mensal(metas, regionais, grupos, meses)
 meta_total = sum(metas_mes.values())
 real_total = float(incremento["GANHO_MWH"].sum())
 residual_total = float(residual["GANHO_MWH"].sum())
@@ -260,10 +206,10 @@ k7.metric("UCs com incremento", formatar_inteiro(ucs))
 
 mensal_real = incremento.groupby("REF_MES")["GANHO_MWH"].sum()
 comparativo = pd.DataFrame({
-    "Mês número": meses_ordenados * 2,
-    "Tipo": ["Meta"] * len(meses_ordenados) + ["Realizado"] * len(meses_ordenados),
-    "Energia (MWh)": [metas_mes.get(m, 0) for m in meses_ordenados]
-    + [float(mensal_real.get(m, 0)) for m in meses_ordenados],
+    "Mês número": meses * 2,
+    "Tipo": ["Meta"] * len(meses) + ["Realizado"] * len(meses),
+    "Energia (MWh)": [metas_mes.get(m, 0) for m in meses]
+    + [float(mensal_real.get(m, 0)) for m in meses],
 })
 comparativo["Mês"] = comparativo["Mês número"].map(lambda m: MESES[m].title())
 comparativo["Rótulo"] = comparativo["Energia (MWh)"].map(formatar_mwh)
@@ -279,22 +225,20 @@ with c1:
     fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
 with c2:
-    acumulado = pd.DataFrame({"Mês número": meses_ordenados})
-    acumulado["Mês"] = acumulado["Mês número"].map(lambda m: MESES[m].title())
-    acumulado["Meta"] = acumulado["Mês número"].map(metas_mes).fillna(0).cumsum()
-    acumulado["Realizado"] = acumulado["Mês número"].map(mensal_real).fillna(0).cumsum()
-    acumulado = acumulado.melt(
-        id_vars=["Mês número", "Mês"], value_vars=["Meta", "Realizado"],
-        var_name="Tipo", value_name="Energia acumulada (MWh)",
+    evolucao = pd.DataFrame({"Mês número": meses})
+    evolucao["Ganho (MWh)"] = evolucao["Mês número"].map(mensal_real).fillna(0)
+    evolucao["Mês"] = evolucao["Mês número"].map(lambda m: MESES[m].title())
+    evolucao["Anterior"] = evolucao["Ganho (MWh)"].shift(1)
+    evolucao["Situação"] = "Primeiro mês"
+    evolucao.loc[evolucao["Ganho (MWh)"].ge(evolucao["Anterior"]), "Situação"] = "Crescimento"
+    evolucao.loc[evolucao["Ganho (MWh)"].lt(evolucao["Anterior"]), "Situação"] = "Queda"
+    evolucao["Rótulo"] = evolucao["Ganho (MWh)"].map(formatar_mwh)
+    fig = px.bar(
+        evolucao, x="Mês", y="Ganho (MWh)", color="Situação",
+        title="Ganho mensal", text="Rótulo",
+        color_discrete_map={"Crescimento": "#34D399", "Queda": "#F87171", "Primeiro mês": "#38BDF8"},
     )
-    acumulado["Rótulo"] = acumulado["Energia acumulada (MWh)"].map(formatar_mwh)
-    fig = px.line(
-        acumulado, x="Mês", y="Energia acumulada (MWh)", color="Tipo",
-        markers=True, title="Meta x realizado acumulado", text="Rótulo",
-        category_orders={"Tipo": ["Meta", "Realizado"]},
-        color_discrete_map={"Meta": "#64748B", "Realizado": "#38BDF8"},
-    )
-    fig.update_traces(textposition="top center", line=dict(width=3))
+    fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
 
 t1, t2 = st.columns(2)
@@ -335,7 +279,7 @@ with d2:
 
 st.markdown("### Ganho mensal por unidade consumidora")
 pivot_uc = incremento.pivot_table(index="UC", columns="REF_MES", values="GANHO_MWH", aggfunc="sum", fill_value=0)
-pivot_uc = pivot_uc.reindex(columns=meses_ordenados, fill_value=0)
+pivot_uc = pivot_uc.reindex(columns=meses, fill_value=0)
 pivot_uc.columns = [MESES[m].title() for m in pivot_uc.columns]
 
 def destacar_queda(linha: pd.Series) -> list[str]:
