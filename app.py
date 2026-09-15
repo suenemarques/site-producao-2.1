@@ -89,8 +89,20 @@ def categorizar_servico_grupo_a(descricao: object, resultado: object) -> str:
     return "OUTROS"
 
 
-@st.cache_data(ttl=900, show_spinner=False)
-def carregar_bases() -> tuple[pd.DataFrame, pd.DataFrame]:
+def assinatura_arquivo(caminho: Path) -> tuple[int, int]:
+    """Muda automaticamente quando o arquivo local é substituído."""
+    status = caminho.stat()
+    return status.st_mtime_ns, status.st_size
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_bases(
+    assinatura_producao: tuple[int, int],
+    assinatura_metas: tuple[int, int],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # As assinaturas fazem parte da chave do cache. Quando o GitHub/Streamlit
+    # baixa uma base nova, o cache anterior deixa de ser utilizado.
+    del assinatura_producao, assinatura_metas
     producao = pd.read_parquet(ARQ_PRODUCAO)
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
     producao.columns = [str(c).strip() for c in producao.columns]
@@ -277,8 +289,15 @@ st.markdown(
 )
 
 
+if st.sidebar.button("🔄 Atualizar dados agora", width="stretch"):
+    st.cache_data.clear()
+    st.rerun()
+
 try:
-    producao, metas = carregar_bases()
+    producao, metas = carregar_bases(
+        assinatura_arquivo(ARQ_PRODUCAO),
+        assinatura_arquivo(ARQ_METAS),
+    )
 except Exception as erro:
     st.error(f"Não foi possível carregar as bases: {erro}")
     st.stop()
@@ -588,7 +607,7 @@ with st.expander("Consultar produção detalhada"):
         "NR_OS", "DT_CONCLUSAO", "REGIONAL_PAINEL", "GRUPOS",
         "PRX_DESCRICAO", "EMP_SIGLA", "projeto_perdas",
         "RESULTADO_INSPECAO_1", "CODIGO_IRREGULARIDADE_CAMPO",
-        "NOME_MUNICIPIO", "UC",
+        "MOTIVO_NAO_EXECUTADO", "NOME_MUNICIPIO", "UC",
     ]
     colunas_tabela = [c for c in colunas_tabela if c in df.columns]
     detalhe = df[colunas_tabela].sort_values("DT_CONCLUSAO", ascending=False)
@@ -600,10 +619,21 @@ with st.expander("Consultar produção detalhada"):
         mime="text/csv",
     )
 
-horario_atualizacao = datetime.fromtimestamp(
-    ARQ_PRODUCAO.stat().st_mtime,
-    tz=ZoneInfo("America/Sao_Paulo"),
-)
+horario_atualizacao = None
+if "ATUALIZADO_EM" in producao.columns:
+    horarios_base = pd.to_datetime(
+        producao["ATUALIZADO_EM"], errors="coerce", utc=True
+    ).dropna()
+    if not horarios_base.empty:
+        horario_atualizacao = horarios_base.max().tz_convert(
+            "America/Sao_Paulo"
+        ).to_pydatetime()
+
+if horario_atualizacao is None:
+    horario_atualizacao = datetime.fromtimestamp(
+        ARQ_PRODUCAO.stat().st_mtime,
+        tz=ZoneInfo("America/Sao_Paulo"),
+    )
 st.caption(
     f"Dados atualizados em: {horario_atualizacao:%d/%m/%Y às %H:%M} · "
     "Fonte: ODS de produção · Data de referência: DT_CONCLUSAO · "
