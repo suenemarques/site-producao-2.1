@@ -65,7 +65,7 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["MES_NOME"] = base["REF_MES"].map(lambda m: MESES.get(int(m), "") if pd.notna(m) else "")
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [str(c).strip() for c in metas.columns]
+    metas.columns = [normalizar(c) for c in metas.columns]
     metas.rename(columns={"MÊS": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
@@ -90,18 +90,27 @@ def obter_meta_mensal(
     base = metas[
         metas["REGIONAL"].isin(regionais_meta)
         & metas["MES_NUM_META"].isin(meses)
-        & metas["TIPO DA META"].str.contains("INCREMENTO", na=False)
+        # Esta tela usa somente metas regionais de Incremento.
+        # "INCREMENTO POR EQUIPE" pertence ao MEPE e não entra neste total.
+        & ~metas["TIPO DA META"].str.contains("POR EQUIPE", na=False)
     ].copy()
+
+    tipo_meta_por_grupo = {
+        "A": "INCREMENTO AT",
+        "B": "INCREMENTO BT",
+        "IP": "INCREMENTO IP",
+    }
+
     saida: dict[int, float] = {}
     for mes in meses:
         linhas_mes = base[base["MES_NUM_META"].eq(mes)]
         total = 0.0
         for grupo in grupos:
-            linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
-            if grupo == "IP" and linhas_grupo.empty:
-                linhas_grupo = linhas_mes[
-                    linhas_mes["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)
-                ]
+            tipo_meta = tipo_meta_por_grupo.get(grupo)
+            linhas_grupo = linhas_mes[
+                linhas_mes["GRUPO"].eq(grupo)
+                & linhas_mes["TIPO DA META"].eq(tipo_meta)
+            ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
     return saida
@@ -160,7 +169,9 @@ with st.sidebar:
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
+    # Mantém A, B e IP disponíveis mesmo sem realizado para algum grupo.
+    # Dessa forma, a meta de IP pode ser consultada separadamente.
+    grupos_disp = ["A", "B", "IP"]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
     meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
