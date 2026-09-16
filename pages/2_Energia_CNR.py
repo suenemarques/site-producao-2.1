@@ -92,18 +92,24 @@ def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses
     base = metas[
         metas["REGIONAL"].isin(regionais)
         & metas["MES"].isin([MESES[m] for m in meses])
-        & metas["TIPO DA META"].str.contains("CNR", na=False)
+        # Esta tela usa apenas as metas regionais de CNR.
+        # "CNR POR EQUIPE" pertence ao MEPE e não pode ser somada aqui.
+        & ~metas["TIPO DA META"].str.contains("POR EQUIPE", na=False)
     ].copy()
+
+    tipo_meta_por_grupo = {
+        "A": "CNR AT",
+        "B": "CNR BT",
+        "IP": "CNR IP",
+    }
+
     resultado: dict[str, float] = {}
     for grupo in grupos:
-        por_coluna = base[base["GRUPO"].eq(grupo)]
-        if grupo == "IP":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)]
-        elif grupo == "A":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bAT\b|GRUPO A", regex=True, na=False)]
-        else:
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bBT\b|GRUPO B", regex=True, na=False)]
-        linhas = por_coluna if not por_coluna.empty else por_tipo
+        tipo_meta = tipo_meta_por_grupo.get(grupo)
+        linhas = base[
+            base["GRUPO"].eq(grupo)
+            & base["TIPO DA META"].eq(tipo_meta)
+        ]
         resultado[grupo] = float(linhas["QUANTIDADE"].sum())
     return resultado
 
@@ -156,7 +162,9 @@ with st.sidebar:
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(cnr["GRUPO"])]
+    # Exibe os três grupos mesmo quando ainda não existe realizado para IP.
+    # Isso permite visualizar e filtrar a meta cadastrada no Excel.
+    grupos_disp = ["A", "B", "IP"]
     grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp)
     meses_disp = sorted(cnr["FISCAL_CICLO_STATUS_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title())
