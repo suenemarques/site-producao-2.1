@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
+from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
 
 
 st.set_page_config(
@@ -344,8 +344,11 @@ with st.sidebar:
     st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.page_link("pages/3_Incremento.py", label="Incremento", icon="📈", width="stretch")
     st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
-    st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
-    st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
+    # CAPEX/OPEX e Validação são páginas administrativas.
+    # Os links não aparecem para usuários com acesso RIOF ou MORF.
+    if acesso_geral(usuario):
+        st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
+        st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
