@@ -66,12 +66,24 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     cnr["MES_NOME"] = cnr["FISCAL_CICLO_STATUS_MES"].map(MESES)
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [str(c).strip() for c in metas.columns]
+    metas.columns = [normalizar(c) for c in metas.columns]
     metas.rename(columns={"MÊS": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
             metas[coluna] = ""
         metas[coluna] = metas[coluna].map(normalizar)
+
+    # Compatibiliza os nomes utilizados no Excel com os nomes do filtro da tela.
+    # No Excel: MORRINHOS / RIO VERDE
+    # Na base CNR: 03.MORRINHOS / 04.RIO VERDE
+    mapa_regionais_meta = {
+        "MORRINHOS": "03.MORRINHOS",
+        "03.MORRINHOS": "03.MORRINHOS",
+        "RIO VERDE": "04.RIO VERDE",
+        "04.RIO VERDE": "04.RIO VERDE",
+    }
+    metas["REGIONAL"] = metas["REGIONAL"].replace(mapa_regionais_meta)
+
     metas["QUANTIDADE"] = pd.to_numeric(metas.get("QUANTIDADE", 0), errors="coerce").fillna(0)
     return cnr, metas
 
