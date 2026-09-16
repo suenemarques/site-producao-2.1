@@ -3,9 +3,10 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
+from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
 
 st.set_page_config(page_title="MEPE", page_icon="🎯", layout="wide")
+usuario = exigir_login()
 BASE = Path(__file__).resolve().parents[1]
 ARQ = BASE / "dados" / "mepe.parquet"
 MESES = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
@@ -18,7 +19,6 @@ def tema(fig, h=420):
     return fig
 
 st.markdown("""<style>.stApp{background:#07111F;color:#E8EEF6}[data-testid="stSidebar"]{background:#0B1728;border-right:1px solid #1E3047}[data-testid="stSidebarNav"]{display:none}.block-container{padding-top:1.5rem;max-width:1550px}div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:.5rem}.nav{display:block;padding:.55rem;margin:.25rem 0;border:1px solid #46556A;border-radius:.5rem;text-align:center;color:white!important;text-decoration:none!important}</style>""",unsafe_allow_html=True)
-usuario = exigir_login()
 if not ARQ.is_file():
     st.error("Base MEPE não encontrada."); st.info("Execute o Atualizador Único V13 para gerar dados/mepe.parquet."); st.stop()
 
@@ -32,12 +32,14 @@ with st.sidebar:
     for arq,label,icone in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈")]:
         if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
     st.button("🎯 MEPE",disabled=True,width="stretch")
-    for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_Turnos.py","Validação de Turnos","🕒")]:
-        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+    if acesso_geral(usuario):
+        for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_turnos.py","Validação de Turnos","🕒")]:
+            if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(df0.REGIONAL_MEPE.unique()),default=sorted(df0.REGIONAL_MEPE.unique()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
-    equipes=st.multiselect("Equipe",sorted(df0.PRX_DESCRICAO.unique()),default=sorted(df0.PRX_DESCRICAO.unique()))
+    equipes_disp=sorted(df0.loc[df0.REGIONAL_MEPE.isin(regs),"PRX_DESCRICAO"].unique())
+    equipes=st.multiselect("Equipe",equipes_disp,default=equipes_disp)
 df=df0[df0.REGIONAL_MEPE.isin(regs)&df0.MES_REF.isin(meses)&df0.PRX_DESCRICAO.isin(equipes)].copy()
 atualizado=pd.to_datetime(df0.get("ATUALIZADO_EM",pd.Series(dtype=str)),errors="coerce").max()
 st.title("MEPE"); st.caption(f"{len(df):,.0f} combinações de equipe e mês filtradas · Dados atualizados em: {atualizado:%d/%m/%Y às %H:%M}" if pd.notna(atualizado) else f"{len(df):,.0f} combinações filtradas".replace(",","."))
