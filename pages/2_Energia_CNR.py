@@ -91,7 +91,9 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
 def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses: list[int]) -> dict[str, float]:
     base = metas[
         metas["REGIONAL"].isin(regionais)
-        & metas["MES"].isin([MESES[m] for m in meses])
+        # Os meses do Excel foram normalizados sem acentos (ex.: MARCO).
+        # Normaliza também os nomes gerados pelo filtro para março não ser perdido.
+        & metas["MES"].isin([normalizar(MESES[m]) for m in meses])
         # Esta tela usa apenas as metas regionais de CNR.
         # "CNR POR EQUIPE" pertence ao MEPE e não pode ser somada aqui.
         & ~metas["TIPO DA META"].str.contains("POR EQUIPE", na=False)
