@@ -77,6 +77,30 @@ def _usuarios_cadastrados() -> dict[str, str]:
 
 def exigir_login() -> dict[str, str]:
     """Bloqueia a página e retorna LOGIN/ACESSO do usuário autorizado."""
+    # Oculta globalmente a barra superior do Streamlit Cloud, incluindo
+    # Compartilhar, favorito, editar, GitHub/código-fonte e menu de opções.
+    # Como todas as páginas chamam exigir_login(), o ajuste vale no site todo.
+    st.markdown(
+        """
+        <style>
+        [data-testid="stToolbar"],
+        [data-testid="stAppToolbar"],
+        [data-testid="stHeaderActionElements"],
+        #MainMenu {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        header a[href*="github.com"],
+        a[href*="github.com/suenemarques/site-producao-2.1"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     try:
         usuarios = _usuarios_cadastrados()
     except Exception as erro:
