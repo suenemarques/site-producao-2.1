@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from tema_neon import aplicar_tema_neon
+from tema_neon import aplicar_tema_neon, menu_lateral
 
 st.set_page_config(page_title="MEPE", page_icon="🎯", layout="wide")
 aplicar_tema_neon()
@@ -33,6 +33,14 @@ def classificar_mepe(pontos):
     if pontos >= 40: return "C"
     return "D"
 
+def classificar_indicador(meta, realizado):
+    if pd.isna(meta) or meta <= 0 or pd.isna(realizado): return "Sem meta"
+    atingimento = realizado / meta * 100
+    if atingimento >= 100: return "A"
+    if atingimento >= 85: return "B"
+    if atingimento >= 70: return "C"
+    return "D"
+
 def cor_classificacao(valor):
     cores = {
         "A": "background-color:#14532D;color:#DCFCE7;font-weight:800",
@@ -57,13 +65,7 @@ if not ARQ.is_file():
 def carregar(): return pd.read_parquet(ARQ)
 df0 = carregar()
 with st.sidebar:
-    st.markdown("### 🎯 MEPE"); st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for arq,label,icone in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈")]:
-        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
-    st.button("🎯 MEPE",disabled=True,width="stretch")
-    for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_Turnos.py","Validação de Turnos","🕒")]:
-        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+    menu_lateral("mepe")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(df0.REGIONAL_MEPE.unique()),default=sorted(df0.REGIONAL_MEPE.unique()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
@@ -90,12 +92,15 @@ quadro.index.name = "Equipe"
 quadro["Meta UPS"] = soma_equipe(df, col_meta_ups).reindex(indice_equipes)
 quadro["Realizado UPS"] = soma_equipe(df, col_real_ups).reindex(indice_equipes)
 quadro["Pontuação UPS"] = media_equipe(df, "PONT_UPS").reindex(indice_equipes)
+quadro["Classe UPS"] = [classificar_indicador(m, r) for m, r in zip(quadro["Meta UPS"], quadro["Realizado UPS"])]
 quadro["Meta CNR (kWh)"] = soma_equipe(df, col_meta_cnr).reindex(indice_equipes)
 quadro["Realizado CNR (kWh)"] = soma_equipe(df, col_real_cnr).reindex(indice_equipes)
 quadro["Pontuação CNR"] = media_equipe(df, "PONT_CNR").reindex(indice_equipes)
+quadro["Classe CNR"] = [classificar_indicador(m, r) for m, r in zip(quadro["Meta CNR (kWh)"], quadro["Realizado CNR (kWh)"])]
 quadro["Meta INC (kWh)"] = soma_equipe(df, col_meta_inc).reindex(indice_equipes)
 quadro["Realizado INC (kWh)"] = soma_equipe(df, col_real_inc).reindex(indice_equipes)
 quadro["Pontuação INC"] = media_equipe(df, "PONT_INC").reindex(indice_equipes)
+quadro["Classe INC"] = [classificar_indicador(m, r) for m, r in zip(quadro["Meta INC (kWh)"], quadro["Realizado INC (kWh)"])]
 quadro["Pontuação Total"] = media_equipe(df, "PONT_TOTAL").reindex(indice_equipes)
 if col_classe:
     classes = (
@@ -110,7 +115,7 @@ else:
 quadro = quadro.reset_index()
 
 st.subheader("Meta x realizado e classificação por equipe")
-st.caption("Metas e realizados somados nos meses selecionados; pontuações pela média mensal. Classificação: A ≥ 80, B ≥ 60, C ≥ 40 e D < 40 pontos.")
+st.caption("Metas e realizados são somados; pontuações usam a média mensal. Classes individuais: A ≥ 100%, B ≥ 85%, C ≥ 70% e D < 70% da meta. Classificação total: A ≥ 80, B ≥ 60, C ≥ 40 e D < 40 pontos.")
 formatos = {
     "Meta UPS": "{:,.2f}", "Realizado UPS": "{:,.2f}", "Pontuação UPS": "{:,.2f}",
     "Meta CNR (kWh)": "{:,.2f}", "Realizado CNR (kWh)": "{:,.2f}", "Pontuação CNR": "{:,.2f}",
@@ -118,7 +123,10 @@ formatos = {
     "Pontuação Total": "{:,.2f}",
 }
 st.dataframe(
-    quadro.style.format(formatos, na_rep="—").applymap(cor_classificacao, subset=["Classificação"]),
+    quadro.style.format(formatos, na_rep="—").applymap(
+        cor_classificacao,
+        subset=["Classe UPS", "Classe CNR", "Classe INC", "Classificação"],
+    ),
     width="stretch", hide_index=True, height=min(520, 85 + len(quadro) * 35),
 )
 
