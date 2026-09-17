@@ -348,6 +348,9 @@ st.markdown(
     }
     [data-testid="stSidebarNav"] {display:none;}
     [data-testid="stHeader"] {background: rgba(7,17,31,.72); backdrop-filter: blur(12px);}
+    [data-testid="stToolbar"], [data-testid="stHeaderActionElements"],
+    [data-testid="stAppDeployButton"], [data-testid="stMainMenu"],
+    #MainMenu, footer {display:none!important; visibility:hidden!important;}
     h1, h2, h3 {letter-spacing: -.035em;}
     .block-container {padding-top: 1.6rem; max-width: 1550px;}
     .eyebrow {color:#38BDF8; font-size:.78rem; font-weight:800; letter-spacing:.14em;}
