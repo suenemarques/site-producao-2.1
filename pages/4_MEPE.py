@@ -3,10 +3,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
 from tema_neon import aplicar_tema_neon, menu_lateral
 
 st.set_page_config(page_title="MEPE", page_icon="🎯", layout="wide")
 aplicar_tema_neon()
+usuario = exigir_login()
 BASE = Path(__file__).resolve().parents[1]
 ARQ = BASE / "dados" / "mepe.parquet"
 MESES = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
@@ -64,6 +66,7 @@ if not ARQ.is_file():
 @st.cache_data(ttl=900)
 def carregar(): return pd.read_parquet(ARQ)
 df0 = carregar()
+df0 = filtrar_por_acesso(df0, "REGIONAL_MEPE", usuario["ACESSO"])
 with st.sidebar:
     menu_lateral("mepe")
     st.markdown("---")
