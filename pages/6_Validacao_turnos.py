@@ -4,10 +4,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
 from tema_neon import aplicar_tema_neon, menu_lateral
 
 st.set_page_config(page_title="Validação de Turnos",page_icon="🕒",layout="wide")
 aplicar_tema_neon()
+usuario = exigir_login()
 BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"validacao_turnos.parquet"; METAS=BASE/"METAS 2026.xlsx"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 def inteiro(v): return f"{v:,.0f}".replace(",",".")
@@ -21,7 +23,7 @@ def carregar():
     d=pd.read_parquet(ARQ)
     for c in ["DATA_TURNO","DT_BAIXA","HOST_VI_DT_INI_DESLOCAMENTO","HOST_VI_DT_FIM_DESLOCAMENTO","HOST_VI_DT_INI_SERVICO","HOST_VI_DT_FIM_SERVICO"]: d[c]=pd.to_datetime(d[c],errors="coerce")
     return d
-d0=carregar(); meses_disp=sorted(d0.DATA_TURNO.dt.month.dropna().astype(int).unique())
+d0=carregar(); d0=filtrar_por_acesso(d0,"REGIONAL_TURNO",usuario["ACESSO"]); meses_disp=sorted(d0.DATA_TURNO.dt.month.dropna().astype(int).unique())
 with st.sidebar:
     menu_lateral("turnos"); st.markdown("---")
     regs=st.multiselect("Regional",sorted(d0.REGIONAL_TURNO.unique()),default=sorted(d0.REGIONAL_TURNO.unique()))
