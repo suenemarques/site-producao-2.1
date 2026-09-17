@@ -3,10 +3,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
 from tema_neon import aplicar_tema_neon, menu_lateral
 
 st.set_page_config(page_title="CAPEX e OPEX",page_icon="💰",layout="wide")
 aplicar_tema_neon()
+usuario = exigir_login()
 BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"capex_opex.parquet"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 def moeda(v): return "R$ "+f"{v:,.2f}".replace(",","X").replace(".",",").replace("X",".")
@@ -19,6 +21,7 @@ if not ARQ.is_file(): st.error("Base CAPEX/OPEX não encontrada."); st.info("Exe
 def carregar():
     d=pd.read_parquet(ARQ); d["DT_CONCLUSAO"]=pd.to_datetime(d["DT_CONCLUSAO"],errors="coerce"); return d
 d0=carregar()
+d0=filtrar_por_acesso(d0,"REGIONAL",usuario["ACESSO"])
 with st.sidebar:
     menu_lateral("capex")
     st.caption("Somente equipes RIOF e MORF")
