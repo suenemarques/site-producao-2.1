@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
+from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
 
 
 st.set_page_config(page_title="Incremento", page_icon="📈", layout="wide")
@@ -162,10 +162,13 @@ base = filtrar_por_acesso(base, "REGIONAL_N", usuario["ACESSO"])
 with st.sidebar:
     st.markdown("### 📈 Incremento")
     st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav-producao" href="/" target="_self">📊 Produção</a>', unsafe_allow_html=True)
-    if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
-        st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
+    st.page_link("app.py", label="Produção", icon="📊", width="stretch")
+    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
+    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
+    if acesso_geral(usuario):
+        st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
+        st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
