@@ -8,11 +8,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
 from tema_neon import aplicar_tema_neon, menu_lateral
 
 
 st.set_page_config(page_title="Energia CNR", page_icon="⚡", layout="wide")
 aplicar_tema_neon()
+usuario = exigir_login()
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ARQ_CNR = BASE_DIR / "dados" / "cnr_2026.parquet"
@@ -134,6 +136,8 @@ except Exception as erro:
     st.error(f"Não foi possível carregar a base de CNR: {erro}")
     st.info("Execute primeiro o atualizador para gerar dados/cnr_2026.parquet.")
     st.stop()
+
+cnr = filtrar_por_acesso(cnr, "REGIONAL", usuario["ACESSO"])
 
 with st.sidebar:
     menu_lateral("cnr")
