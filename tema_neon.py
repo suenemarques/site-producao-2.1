@@ -97,6 +97,12 @@ def aplicar_tema_neon() -> None:
           scrollbar-color:rgba(56,189,248,.55) rgba(11,23,40,.25);
         }
         [data-testid="stHeader"]{background:rgba(7,17,31,.72)!important;backdrop-filter:blur(12px)}
+        [data-testid="stToolbar"],
+        [data-testid="stHeaderActionElements"],
+        [data-testid="stAppDeployButton"],
+        [data-testid="stMainMenu"],
+        #MainMenu,
+        footer {display:none!important;visibility:hidden!important}
         div[data-testid="stMetric"],div[data-testid="stPlotlyChart"] {
           background:rgba(11,23,40,.88)!important;
           backdrop-filter:blur(10px);
