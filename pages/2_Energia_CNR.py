@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
+from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
 
 
 st.set_page_config(page_title="Energia CNR", page_icon="⚡", layout="wide")
@@ -161,6 +161,13 @@ cnr = filtrar_por_acesso(cnr, "REGIONAL", usuario["ACESSO"])
 with st.sidebar:
     st.markdown("### ⚡ Energia CNR")
     st.caption("Recuperação de Energia · Sul")
+    st.page_link("app.py", label="Produção", icon="📊", width="stretch")
+    st.button("⚡ Energia CNR", disabled=True, width="stretch")
+    st.page_link("pages/3_Incremento.py", label="Incremento", icon="📈", width="stretch")
+    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
+    if acesso_geral(usuario):
+        st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
+        st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
