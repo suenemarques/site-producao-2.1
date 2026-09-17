@@ -8,11 +8,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from auth_site import exigir_login, filtrar_por_acesso
 from tema_neon import aplicar_tema_neon, menu_lateral
 
 
 st.set_page_config(page_title="Incremento", page_icon="📈", layout="wide")
 aplicar_tema_neon()
+usuario = exigir_login()
 
 ANO_ATUAL = 2026
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -151,6 +153,8 @@ except Exception as erro:
     st.error(f"Não foi possível carregar a base de Incremento: {erro}")
     st.info("Execute o atualizador único para gerar dados/incremento_2026.parquet.")
     st.stop()
+
+base = filtrar_por_acesso(base, "REGIONAL_N", usuario["ACESSO"])
 
 with st.sidebar:
     menu_lateral("incremento")
