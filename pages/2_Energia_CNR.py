@@ -8,10 +8,11 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
+from tema_neon import aplicar_tema_neon
 
 
 st.set_page_config(page_title="Energia CNR", page_icon="⚡", layout="wide")
+aplicar_tema_neon()
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ARQ_CNR = BASE_DIR / "dados" / "cnr_2026.parquet"
@@ -66,24 +67,12 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     cnr["MES_NOME"] = cnr["FISCAL_CICLO_STATUS_MES"].map(MESES)
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [normalizar(c) for c in metas.columns]
+    metas.columns = [str(c).strip() for c in metas.columns]
     metas.rename(columns={"MÊS": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
             metas[coluna] = ""
         metas[coluna] = metas[coluna].map(normalizar)
-
-    # Compatibiliza os nomes utilizados no Excel com os nomes do filtro da tela.
-    # No Excel: MORRINHOS / RIO VERDE
-    # Na base CNR: 03.MORRINHOS / 04.RIO VERDE
-    mapa_regionais_meta = {
-        "MORRINHOS": "03.MORRINHOS",
-        "03.MORRINHOS": "03.MORRINHOS",
-        "RIO VERDE": "04.RIO VERDE",
-        "04.RIO VERDE": "04.RIO VERDE",
-    }
-    metas["REGIONAL"] = metas["REGIONAL"].replace(mapa_regionais_meta)
-
     metas["QUANTIDADE"] = pd.to_numeric(metas.get("QUANTIDADE", 0), errors="coerce").fillna(0)
     return cnr, metas
 
@@ -91,27 +80,19 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
 def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses: list[int]) -> dict[str, float]:
     base = metas[
         metas["REGIONAL"].isin(regionais)
-        # Os meses do Excel foram normalizados sem acentos (ex.: MARCO).
-        # Normaliza também os nomes gerados pelo filtro para março não ser perdido.
-        & metas["MES"].isin([normalizar(MESES[m]) for m in meses])
-        # Esta tela usa apenas as metas regionais de CNR.
-        # "CNR POR EQUIPE" pertence ao MEPE e não pode ser somada aqui.
-        & ~metas["TIPO DA META"].str.contains("POR EQUIPE", na=False)
+        & metas["MES"].isin([MESES[m] for m in meses])
+        & metas["TIPO DA META"].str.contains("CNR", na=False)
     ].copy()
-
-    tipo_meta_por_grupo = {
-        "A": "CNR AT",
-        "B": "CNR BT",
-        "IP": "CNR IP",
-    }
-
     resultado: dict[str, float] = {}
     for grupo in grupos:
-        tipo_meta = tipo_meta_por_grupo.get(grupo)
-        linhas = base[
-            base["GRUPO"].eq(grupo)
-            & base["TIPO DA META"].eq(tipo_meta)
-        ]
+        por_coluna = base[base["GRUPO"].eq(grupo)]
+        if grupo == "IP":
+            por_tipo = base[base["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)]
+        elif grupo == "A":
+            por_tipo = base[base["TIPO DA META"].str.contains(r"\bAT\b|GRUPO A", regex=True, na=False)]
+        else:
+            por_tipo = base[base["TIPO DA META"].str.contains(r"\bBT\b|GRUPO B", regex=True, na=False)]
+        linhas = por_coluna if not por_coluna.empty else por_tipo
         resultado[grupo] = float(linhas["QUANTIDADE"].sum())
     return resultado
 
@@ -147,8 +128,6 @@ div[data-testid="stMetric"] {background:#0D1A2B;border:1px solid #20334A;border-
 </style>
 """, unsafe_allow_html=True)
 
-usuario = exigir_login()
-
 try:
     cnr, metas = carregar()
 except Exception as erro:
@@ -156,24 +135,13 @@ except Exception as erro:
     st.info("Execute primeiro o atualizador para gerar dados/cnr_2026.parquet.")
     st.stop()
 
-cnr = filtrar_por_acesso(cnr, "REGIONAL", usuario["ACESSO"])
-
 with st.sidebar:
     st.markdown("### ⚡ Energia CNR")
     st.caption("Recuperação de Energia · Sul")
-    st.page_link("app.py", label="Produção", icon="📊", width="stretch")
-    st.button("⚡ Energia CNR", disabled=True, width="stretch")
-    st.page_link("pages/3_Incremento.py", label="Incremento", icon="📈", width="stretch")
-    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
-    if acesso_geral(usuario):
-        st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
-        st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    # Exibe os três grupos mesmo quando ainda não existe realizado para IP.
-    # Isso permite visualizar e filtrar a meta cadastrada no Excel.
-    grupos_disp = ["A", "B", "IP"]
+    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(cnr["GRUPO"])]
     grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp)
     meses_disp = sorted(cnr["FISCAL_CICLO_STATUS_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title())
