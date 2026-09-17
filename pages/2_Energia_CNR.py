@@ -80,8 +80,17 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses: list[int]) -> dict[str, float]:
+    # A base CNR usa 03.MORRINHOS/04.RIO VERDE, enquanto a planilha de metas
+    # normalmente usa MORRINHOS/RIO VERDE. Remove o código para comparar.
+    regionais_meta = {
+        re.sub(r"^\d+\s*[.\-]?\s*", "", normalizar(regional))
+        for regional in regionais
+    }
+    regional_meta_normalizada = metas["REGIONAL"].str.replace(
+        r"^\d+\s*[.\-]?\s*", "", regex=True
+    )
     base = metas[
-        metas["REGIONAL"].isin(regionais)
+        regional_meta_normalizada.isin(regionais_meta)
         & metas["MES"].isin([MESES[m] for m in meses])
         & metas["TIPO DA META"].str.contains("CNR", na=False)
     ].copy()
