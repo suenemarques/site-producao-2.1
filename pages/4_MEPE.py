@@ -28,9 +28,9 @@ df0 = carregar()
 df0 = filtrar_por_acesso(df0, "REGIONAL_MEPE", usuario["ACESSO"])
 with st.sidebar:
     st.markdown("### 🎯 MEPE"); st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for arq,label,icone in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈")]:
-        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+    st.page_link("app.py",label="Produção",icon="📊",width="stretch")
+    st.page_link("pages/2_Energia_CNR.py",label="Energia CNR",icon="⚡",width="stretch")
+    st.page_link("pages/3_Incremento.py",label="Incremento",icon="📈",width="stretch")
     st.button("🎯 MEPE",disabled=True,width="stretch")
     if acesso_geral(usuario):
         for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_turnos.py","Validação de Turnos","🕒")]:
