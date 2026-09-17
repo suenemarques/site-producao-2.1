@@ -342,6 +342,10 @@ st.markdown(
       border-right: 1px solid rgba(56,189,248,.20);
       box-shadow: 10px 0 35px rgba(0,0,0,.18);
     }
+    [data-testid="stSidebarContent"], section[data-testid="stSidebar"] > div {
+      max-height:100vh!important; overflow-y:auto!important; overflow-x:hidden!important;
+      scrollbar-width:thin; scrollbar-color:rgba(56,189,248,.55) rgba(11,23,40,.25);
+    }
     [data-testid="stSidebarNav"] {display:none;}
     [data-testid="stHeader"] {background: rgba(7,17,31,.72); backdrop-filter: blur(12px);}
     h1, h2, h3 {letter-spacing: -.035em;}
@@ -409,11 +413,8 @@ with st.sidebar:
     st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.page_link("pages/3_Incremento.py", label="Incremento", icon="📈", width="stretch")
     st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
-    # CAPEX/OPEX e Validação são páginas administrativas.
-    # Os links não aparecem para usuários com acesso RIOF ou MORF.
-    if acesso_geral(usuario):
-        st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
-        st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
+    st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
+    st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
     regionais = st.multiselect(
         "Regional", ["RIO VERDE", "MORRINHOS"],
