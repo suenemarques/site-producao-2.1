@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from tema_neon import aplicar_tema_neon
+from tema_neon import aplicar_tema_neon, menu_lateral
 
 st.set_page_config(page_title="CAPEX e OPEX",page_icon="💰",layout="wide")
 aplicar_tema_neon()
@@ -20,12 +20,8 @@ def carregar():
     d=pd.read_parquet(ARQ); d["DT_CONCLUSAO"]=pd.to_datetime(d["DT_CONCLUSAO"],errors="coerce"); return d
 d0=carregar()
 with st.sidebar:
-    st.markdown("### 💰 CAPEX e OPEX"); st.caption("Somente equipes RIOF e MORF")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
-    st.button("💰 CAPEX e OPEX",disabled=True,width="stretch")
-    if (BASE/"pages"/"6_Validacao_Turnos.py").is_file(): st.page_link("pages/6_Validacao_Turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
+    menu_lateral("capex")
+    st.caption("Somente equipes RIOF e MORF")
     st.markdown("---")
     regs=st.multiselect("Regional",sorted(d0.REGIONAL.unique()),default=sorted(d0.REGIONAL.unique()))
     meses=st.multiselect("Mês",sorted(d0.MES_REF.unique()),default=sorted(d0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
