@@ -1,6 +1,27 @@
 import streamlit as st
 
 
+PAGINAS_PAINEL = [
+    ("producao", "app.py", "Produção", "📊"),
+    ("cnr", "pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
+    ("incremento", "pages/3_Incremento.py", "Incremento", "📈"),
+    ("mepe", "pages/4_MEPE.py", "MEPE", "🎯"),
+    ("capex", "pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+    ("turnos", "pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
+]
+
+
+def menu_lateral(pagina_atual: str) -> None:
+    """Exibe o mesmo menu em todas as páginas, preservando a sessão."""
+    st.markdown("### ⚡ Produção 2.0")
+    st.caption("Recuperação de Energia · Sul")
+    for chave, caminho, rotulo, icone in PAGINAS_PAINEL:
+        if chave == pagina_atual:
+            st.button(f"{icone} {rotulo}", disabled=True, width="stretch", key=f"menu_{chave}")
+        else:
+            st.page_link(caminho, label=rotulo, icon=icone, width="stretch")
+
+
 def aplicar_tema_neon() -> None:
     """Aplica o fundo animado compartilhado em todas as páginas do painel."""
     st.markdown(
@@ -66,6 +87,14 @@ def aplicar_tema_neon() -> None:
           backdrop-filter:blur(14px);
           border-right:1px solid rgba(56,189,248,.20)!important;
           box-shadow:10px 0 35px rgba(0,0,0,.18);
+        }
+        [data-testid="stSidebarContent"],
+        section[data-testid="stSidebar"] > div {
+          max-height:100vh!important;
+          overflow-y:auto!important;
+          overflow-x:hidden!important;
+          scrollbar-width:thin;
+          scrollbar-color:rgba(56,189,248,.55) rgba(11,23,40,.25);
         }
         [data-testid="stHeader"]{background:rgba(7,17,31,.72)!important;backdrop-filter:blur(12px)}
         div[data-testid="stMetric"],div[data-testid="stPlotlyChart"] {
