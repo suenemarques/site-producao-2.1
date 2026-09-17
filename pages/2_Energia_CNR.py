@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from tema_neon import aplicar_tema_neon
+from tema_neon import aplicar_tema_neon, menu_lateral
 
 
 st.set_page_config(page_title="Energia CNR", page_icon="⚡", layout="wide")
@@ -136,8 +136,7 @@ except Exception as erro:
     st.stop()
 
 with st.sidebar:
-    st.markdown("### ⚡ Energia CNR")
-    st.caption("Recuperação de Energia · Sul")
+    menu_lateral("cnr")
     st.markdown("---")
     regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
