@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from tema_neon import aplicar_tema_neon
+from tema_neon import aplicar_tema_neon, menu_lateral
 
 st.set_page_config(page_title="Validação de Turnos",page_icon="🕒",layout="wide")
 aplicar_tema_neon()
@@ -23,11 +23,7 @@ def carregar():
     return d
 d0=carregar(); meses_disp=sorted(d0.DATA_TURNO.dt.month.dropna().astype(int).unique())
 with st.sidebar:
-    st.markdown("### 🕒 Validação de Turnos"); st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯"),("5_CAPEX_OPEX.py","CAPEX e OPEX","💰")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
-    st.button("🕒 Validação de Turnos",disabled=True,width="stretch"); st.markdown("---")
+    menu_lateral("turnos"); st.markdown("---")
     regs=st.multiselect("Regional",sorted(d0.REGIONAL_TURNO.unique()),default=sorted(d0.REGIONAL_TURNO.unique()))
     mes=st.selectbox("Mês",meses_disp,index=len(meses_disp)-1,format_func=lambda x:MESES[x])
     inicio_padrao=pd.Timestamp(2026,mes,1).date(); fim_padrao=pd.Timestamp(2026,mes,monthrange(2026,mes)[1]).date()
