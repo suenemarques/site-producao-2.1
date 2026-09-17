@@ -8,10 +8,11 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
+from tema_neon import aplicar_tema_neon
 
 
 st.set_page_config(page_title="Incremento", page_icon="📈", layout="wide")
+aplicar_tema_neon()
 
 ANO_ATUAL = 2026
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -52,6 +53,11 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["ANO_NORM"] = pd.to_numeric(base["ANO_NORM"], errors="coerce").astype("Int64")
     base["REF_MES"] = pd.to_numeric(base["REF_MES"], errors="coerce").astype("Int64")
     base["REGIONAL_N"] = base["Regional"].map(normalizar)
+    # O painel de Incremento é exclusivo das duas regionais da operação Sul.
+    base.loc[base["REGIONAL_N"].str.contains("RIO VERDE", na=False), "REGIONAL_N"] = "04.RIO VERDE"
+    base.loc[base["REGIONAL_N"].str.contains("MORRINHOS", na=False), "REGIONAL_N"] = "03.MORRINHOS"
+    regionais_permitidas = {"04.RIO VERDE", "03.MORRINHOS"}
+    base = base[base["REGIONAL_N"].isin(regionais_permitidas)].copy()
     base["GRUPO_N"] = base["Grupo"].map(normalizar)
     base["PROJETO_N"] = base["PROJETO"].fillna("Não informado").replace("", "Não informado")
     base["DESC_N"] = base["Desconsiderar"].map(normalizar)
@@ -65,7 +71,7 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["MES_NOME"] = base["REF_MES"].map(lambda m: MESES.get(int(m), "") if pd.notna(m) else "")
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [normalizar(c) for c in metas.columns]
+    metas.columns = [str(c).strip() for c in metas.columns]
     metas.rename(columns={"MÊS": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
@@ -90,27 +96,18 @@ def obter_meta_mensal(
     base = metas[
         metas["REGIONAL"].isin(regionais_meta)
         & metas["MES_NUM_META"].isin(meses)
-        # Esta tela usa somente metas regionais de Incremento.
-        # "INCREMENTO POR EQUIPE" pertence ao MEPE e não entra neste total.
-        & ~metas["TIPO DA META"].str.contains("POR EQUIPE", na=False)
+        & metas["TIPO DA META"].str.contains("INCREMENTO", na=False)
     ].copy()
-
-    tipo_meta_por_grupo = {
-        "A": "INCREMENTO AT",
-        "B": "INCREMENTO BT",
-        "IP": "INCREMENTO IP",
-    }
-
     saida: dict[int, float] = {}
     for mes in meses:
         linhas_mes = base[base["MES_NUM_META"].eq(mes)]
         total = 0.0
         for grupo in grupos:
-            tipo_meta = tipo_meta_por_grupo.get(grupo)
-            linhas_grupo = linhas_mes[
-                linhas_mes["GRUPO"].eq(grupo)
-                & linhas_mes["TIPO DA META"].eq(tipo_meta)
-            ]
+            linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
+            if grupo == "IP" and linhas_grupo.empty:
+                linhas_grupo = linhas_mes[
+                    linhas_mes["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)
+                ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
     return saida
@@ -148,8 +145,6 @@ div[data-testid="stMetric"] {background:#0D1A2B;border:1px solid #20334A;border-
 </style>
 """, unsafe_allow_html=True)
 
-usuario = exigir_login()
-
 try:
     base, metas = carregar()
 except Exception as erro:
@@ -157,24 +152,20 @@ except Exception as erro:
     st.info("Execute o atualizador único para gerar dados/incremento_2026.parquet.")
     st.stop()
 
-base = filtrar_por_acesso(base, "REGIONAL_N", usuario["ACESSO"])
-
 with st.sidebar:
     st.markdown("### 📈 Incremento")
     st.caption("Recuperação de Energia · Sul")
-    st.page_link("app.py", label="Produção", icon="📊", width="stretch")
-    st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
+    st.markdown('<a class="nav-producao" href="/" target="_self">📊 Produção</a>', unsafe_allow_html=True)
+    if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
+        st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
     st.button("📈 Incremento", disabled=True, width="stretch")
-    st.page_link("pages/4_MEPE.py", label="MEPE", icon="🎯", width="stretch")
-    if acesso_geral(usuario):
-        st.page_link("pages/5_CAPEX_OPEX.py", label="CAPEX e OPEX", icon="💰", width="stretch")
-        st.page_link("pages/6_Validacao_turnos.py", label="Validação de Turnos", icon="🕒", width="stretch")
     st.markdown("---")
-    regionais_disp = sorted(base["REGIONAL_N"].dropna().unique())
+    regionais_disp = [
+        regional for regional in ["04.RIO VERDE", "03.MORRINHOS"]
+        if regional in set(base["REGIONAL_N"])
+    ]
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    # Mantém A, B e IP disponíveis mesmo sem realizado para algum grupo.
-    # Dessa forma, a meta de IP pode ser consultada separadamente.
-    grupos_disp = ["A", "B", "IP"]
+    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
     meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
