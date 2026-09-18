@@ -89,21 +89,36 @@ def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses
     regional_meta_normalizada = metas["REGIONAL"].str.replace(
         r"^\d+\s*[.\-]?\s*", "", regex=True
     )
+    meses_meta = {normalizar(MESES[m]) for m in meses}
     base = metas[
         regional_meta_normalizada.isin(regionais_meta)
-        & metas["MES"].isin([MESES[m] for m in meses])
-        & metas["TIPO DA META"].str.contains("CNR", na=False)
+        & metas["MES"].isin(meses_meta)
     ].copy()
+    tipos_por_grupo = {
+        "A": "CNR AT",
+        "B": "CNR BT",
+        "IP": "CNR IP",
+    }
     resultado: dict[str, float] = {}
     for grupo in grupos:
-        por_coluna = base[base["GRUPO"].eq(grupo)]
-        if grupo == "IP":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)]
-        elif grupo == "A":
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bAT\b|GRUPO A", regex=True, na=False)]
-        else:
-            por_tipo = base[base["TIPO DA META"].str.contains(r"\bBT\b|GRUPO B", regex=True, na=False)]
-        linhas = por_coluna if not por_coluna.empty else por_tipo
+        grupo_n = normalizar(grupo)
+        tipo_meta = tipos_por_grupo.get(grupo_n)
+        if not tipo_meta:
+            resultado[grupo] = 0.0
+            continue
+
+        # Usa somente a meta regional exata da tela de CNR.
+        # "CNR POR EQUIPE BT" pertence ao MEPE e não pode ser somada aqui.
+        linhas = base[
+            base["GRUPO"].eq(grupo_n)
+            & base["TIPO DA META"].eq(tipo_meta)
+        ]
+
+        # Compatibilidade com planilhas antigas em que a coluna GRUPO
+        # eventualmente esteja vazia, preservando o tipo exato da meta.
+        if linhas.empty:
+            linhas = base[base["TIPO DA META"].eq(tipo_meta)]
+
         resultado[grupo] = float(linhas["QUANTIDADE"].sum())
     return resultado
 
