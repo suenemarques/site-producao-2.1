@@ -95,20 +95,39 @@ def obter_meta_mensal(
         re.sub(r"^\d+\s*[.\-]?\s*", "", normalizar(regional))
         for regional in regionais
     }
+    regional_meta_normalizada = metas["REGIONAL"].str.replace(
+        r"^\d+\s*[.\-]?\s*", "", regex=True
+    )
     base = metas[
-        metas["REGIONAL"].isin(regionais_meta)
+        regional_meta_normalizada.isin(regionais_meta)
         & metas["MES_NUM_META"].isin(meses)
-        & metas["TIPO DA META"].str.contains("INCREMENTO", na=False)
     ].copy()
+    tipos_por_grupo = {
+        "A": "INCREMENTO AT",
+        "B": "INCREMENTO BT",
+        "IP": "INCREMENTO IP",
+    }
     saida: dict[int, float] = {}
     for mes in meses:
         linhas_mes = base[base["MES_NUM_META"].eq(mes)]
         total = 0.0
         for grupo in grupos:
-            linhas_grupo = linhas_mes[linhas_mes["GRUPO"].eq(grupo)]
-            if grupo == "IP" and linhas_grupo.empty:
+            grupo_n = normalizar(grupo)
+            tipo_meta = tipos_por_grupo.get(grupo_n)
+            if not tipo_meta:
+                continue
+
+            # Usa somente a meta regional exata de Incremento.
+            # "INCREMENTO POR EQUIPE BT" pertence ao MEPE e não entra aqui.
+            linhas_grupo = linhas_mes[
+                linhas_mes["GRUPO"].eq(grupo_n)
+                & linhas_mes["TIPO DA META"].eq(tipo_meta)
+            ]
+
+            # Compatibilidade com versões antigas da planilha sem GRUPO.
+            if linhas_grupo.empty:
                 linhas_grupo = linhas_mes[
-                    linhas_mes["TIPO DA META"].str.contains(r"\bIP\b", regex=True, na=False)
+                    linhas_mes["TIPO DA META"].eq(tipo_meta)
                 ]
             total += float(linhas_grupo["QUANTIDADE"].sum())
         saida[mes] = total / 1000
