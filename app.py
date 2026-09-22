@@ -730,11 +730,17 @@ if "ATUALIZADO_EM" in producao.columns:
             "America/Sao_Paulo"
         ).to_pydatetime()
 
-if horario_atualizacao is None:
-    horario_atualizacao = datetime.fromtimestamp(
-        ARQ_PRODUCAO.stat().st_mtime,
-        tz=ZoneInfo("America/Sao_Paulo"),
-    )
+# O arquivo pode ter sido substituído no GitHub/Streamlit mesmo quando uma
+# versão antiga da coluna ATUALIZADO_EM permaneceu dentro do parquet. Nesse
+# caso, considera também a modificação real do arquivo e mostra a data mais
+# recente entre as duas fontes.
+horario_arquivo = datetime.fromtimestamp(
+    ARQ_PRODUCAO.stat().st_mtime,
+    tz=ZoneInfo("America/Sao_Paulo"),
+)
+if horario_atualizacao is None or horario_arquivo > horario_atualizacao:
+    horario_atualizacao = horario_arquivo
+
 st.caption(
     f"Dados atualizados em: {horario_atualizacao:%d/%m/%Y às %H:%M} · "
     "Fonte: ODS de produção · Data de referência: DT_CONCLUSAO · "
