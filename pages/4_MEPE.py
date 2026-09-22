@@ -43,6 +43,14 @@ def classificar_indicador(meta, realizado):
     if atingimento >= 70: return "C"
     return "D"
 
+def classificar_cnr(pontos):
+    """Classifica o CNR diretamente pela pontuação MEPE do indicador."""
+    if pd.isna(pontos): return "Não informada"
+    if pontos >= 30: return "A"
+    if pontos >= 22.8: return "B"
+    if pontos >= 21: return "C"
+    return "D"
+
 def cor_classificacao(valor):
     cores = {
         "A": "background-color:#14532D;color:#DCFCE7;font-weight:800",
@@ -99,7 +107,7 @@ quadro["Classe UPS"] = [classificar_indicador(m, r) for m, r in zip(quadro["Meta
 quadro["Meta CNR (kWh)"] = soma_equipe(df, col_meta_cnr).reindex(indice_equipes)
 quadro["Realizado CNR (kWh)"] = soma_equipe(df, col_real_cnr).reindex(indice_equipes)
 quadro["Pontuação CNR"] = media_equipe(df, "PONT_CNR").reindex(indice_equipes)
-quadro["Classe CNR"] = [classificar_indicador(m, r) for m, r in zip(quadro["Meta CNR (kWh)"], quadro["Realizado CNR (kWh)"])]
+quadro["Classe CNR"] = quadro["Pontuação CNR"].map(classificar_cnr)
 quadro["Meta INC (kWh)"] = soma_equipe(df, col_meta_inc).reindex(indice_equipes)
 quadro["Realizado INC (kWh)"] = soma_equipe(df, col_real_inc).reindex(indice_equipes)
 quadro["Pontuação INC"] = media_equipe(df, "PONT_INC").reindex(indice_equipes)
@@ -118,7 +126,7 @@ else:
 quadro = quadro.reset_index()
 
 st.subheader("Meta x realizado e classificação por equipe")
-st.caption("Metas e realizados são somados; pontuações usam a média mensal. Classes individuais: A ≥ 100%, B ≥ 85%, C ≥ 70% e D < 70% da meta. Classificação total: A ≥ 80, B ≥ 60, C ≥ 40 e D < 40 pontos.")
+st.caption("Metas e realizados são somados; pontuações usam a média mensal. Classe CNR: A ≥ 30 pontos, B de 22,8 a 29,99, C de 21 a 22,79 e D < 21. UPS e Incremento: A ≥ 100%, B ≥ 85%, C ≥ 70% e D < 70% da meta. Classificação total: A ≥ 80, B ≥ 60, C ≥ 40 e D < 40 pontos.")
 formatos = {
     "Meta UPS": "{:,.2f}", "Realizado UPS": "{:,.2f}", "Pontuação UPS": "{:,.2f}",
     "Meta CNR (kWh)": "{:,.2f}", "Realizado CNR (kWh)": "{:,.2f}", "Pontuação CNR": "{:,.2f}",
