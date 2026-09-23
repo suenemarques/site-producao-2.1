@@ -60,6 +60,22 @@ def normalizar_servico(valor: object) -> str:
     return re.sub(r"[^A-Z0-9]+", " ", normalizar_texto(valor)).strip()
 
 
+def formatar_duracao(inicio: pd.Series, fim: pd.Series) -> pd.Series:
+    """Retorna a diferença entre duas datas no formato HH:MM:SS."""
+    segundos = (fim - inicio).dt.total_seconds()
+    resultado = pd.Series("", index=inicio.index, dtype="object")
+    validos = segundos.notna() & segundos.ge(0)
+
+    def para_hhmmss(valor: float) -> str:
+        total = int(valor)
+        horas, resto = divmod(total, 3600)
+        minutos, segundos_restantes = divmod(resto, 60)
+        return f"{horas:02d}:{minutos:02d}:{segundos_restantes:02d}"
+
+    resultado.loc[validos] = segundos.loc[validos].map(para_hhmmss)
+    return resultado
+
+
 def categorizar_servico_grupo_a(descricao: object, resultado: object) -> str:
     servico = normalizar_servico(descricao)
     resultado_n = normalizar_servico(resultado)
@@ -733,14 +749,58 @@ with c2:
     st.plotly_chart(tema_figura(fig), width="stretch")
 
 with st.expander("Consultar produção detalhada"):
+    detalhe_base = df.copy()
+    campos_datahora = {
+        "HOST_VI_DT_INI_DESLOCAMENTO": "HORARIO_INICIO_DESLOCAMENTO",
+        "HOST_VI_DT_FIM_DESLOCAMENTO": "HORARIO_FIM_DESLOCAMENTO",
+        "HOST_VI_DT_INI_SERVICO": "HORARIO_INICIO_SERVICO",
+        "HOST_VI_DT_FIM_SERVICO": "HORARIO_FIM_SERVICO",
+    }
+    datas_convertidas = {}
+    for coluna_origem, coluna_horario in campos_datahora.items():
+        if coluna_origem in detalhe_base.columns:
+            datas_convertidas[coluna_origem] = pd.to_datetime(
+                detalhe_base[coluna_origem], errors="coerce", dayfirst=True
+            )
+            detalhe_base[coluna_horario] = datas_convertidas[
+                coluna_origem
+            ].dt.strftime("%H:%M:%S").fillna("")
+        else:
+            datas_convertidas[coluna_origem] = pd.Series(
+                pd.NaT, index=detalhe_base.index, dtype="datetime64[ns]"
+            )
+            detalhe_base[coluna_horario] = ""
+
+    detalhe_base["TEMPO_DESLOCAMENTO"] = formatar_duracao(
+        datas_convertidas["HOST_VI_DT_INI_DESLOCAMENTO"],
+        datas_convertidas["HOST_VI_DT_FIM_DESLOCAMENTO"],
+    )
+    detalhe_base["TEMPO_SERVICO"] = formatar_duracao(
+        datas_convertidas["HOST_VI_DT_INI_SERVICO"],
+        datas_convertidas["HOST_VI_DT_FIM_SERVICO"],
+    )
+
     colunas_tabela = [
         "NR_OS", "DT_CONCLUSAO", "REGIONAL_PAINEL", "GRUPOS",
         "PRX_DESCRICAO", "EMP_SIGLA", "projeto_perdas",
         "RESULTADO_INSPECAO_1", "CODIGO_IRREGULARIDADE_CAMPO",
         "MOTIVO_NAO_EXECUTADO", "NOME_MUNICIPIO", "UC",
+        "HORARIO_INICIO_DESLOCAMENTO", "HORARIO_FIM_DESLOCAMENTO",
+        "TEMPO_DESLOCAMENTO", "HORARIO_INICIO_SERVICO",
+        "HORARIO_FIM_SERVICO", "TEMPO_SERVICO",
     ]
-    colunas_tabela = [c for c in colunas_tabela if c in df.columns]
-    detalhe = df[colunas_tabela].sort_values("DT_CONCLUSAO", ascending=False)
+    colunas_tabela = [c for c in colunas_tabela if c in detalhe_base.columns]
+    detalhe = detalhe_base[colunas_tabela].sort_values(
+        "DT_CONCLUSAO", ascending=False
+    )
+    detalhe = detalhe.rename(columns={
+        "HORARIO_INICIO_DESLOCAMENTO": "Horário início deslocamento",
+        "HORARIO_FIM_DESLOCAMENTO": "Horário fim deslocamento",
+        "TEMPO_DESLOCAMENTO": "Tempo deslocamento",
+        "HORARIO_INICIO_SERVICO": "Horário início serviço",
+        "HORARIO_FIM_SERVICO": "Horário fim serviço",
+        "TEMPO_SERVICO": "Tempo serviço",
+    })
     st.dataframe(detalhe, width="stretch", hide_index=True, height=430)
     st.download_button(
         "Baixar seleção em CSV",
