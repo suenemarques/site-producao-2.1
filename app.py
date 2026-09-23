@@ -423,31 +423,54 @@ with st.sidebar:
         "Regional", ["RIO VERDE", "MORRINHOS"],
         default=["RIO VERDE", "MORRINHOS"],
     )
-    mes = st.selectbox(
-        "Mês de análise",
+    meses = st.multiselect(
+        "Meses",
         meses_disponiveis,
-        index=len(meses_disponiveis) - 1,
-        format_func=lambda x: MESES[x].title(),
+        default=meses_disponiveis,
+        format_func=lambda mes_numero: MESES[mes_numero].title(),
     )
-    datas_mes = producao.loc[
-        producao["MES_NUM"].eq(mes), "DT_CONCLUSAO_DATA"
-    ].dropna()
-    primeiro_dia_mes = pd.Timestamp(2026, mes, 1).date()
-    ultimo_dia_mes = pd.Timestamp(2026, mes, monthrange(2026, mes)[1]).date()
+    if not meses:
+        st.warning("Selecione pelo menos um mês.")
+        st.stop()
+
+    primeiro_mes_selecionado = min(meses)
+    ultimo_mes_selecionado = max(meses)
+    data_minima = pd.Timestamp(2026, primeiro_mes_selecionado, 1).date()
+    data_maxima = pd.Timestamp(
+        2026,
+        ultimo_mes_selecionado,
+        monthrange(2026, ultimo_mes_selecionado)[1],
+    ).date()
     periodo = st.date_input(
-        "Período por data",
-        value=(primeiro_dia_mes, ultimo_dia_mes),
-        min_value=primeiro_dia_mes,
-        max_value=ultimo_dia_mes,
+        "Calendário — selecione início e fim",
+        value=(data_minima, data_maxima),
+        min_value=data_minima,
+        max_value=data_maxima,
         format="DD/MM/YYYY",
+        key="periodo_" + "_".join(str(mes) for mes in sorted(meses)),
+    )
+    if isinstance(periodo, (tuple, list)):
+        data_inicio = periodo[0]
+        data_fim = periodo[-1] if len(periodo) > 1 else periodo[0]
+    else:
+        data_inicio = data_fim = periodo
+    if data_fim < data_inicio:
+        data_inicio, data_fim = data_fim, data_inicio
+    st.caption(
+        "Os meses permitem selecionar vários períodos. O calendário refina "
+        "os dias dentro dos meses marcados."
     )
     grupos_disponiveis = ["A", "B"]
     grupos = st.multiselect("Grupo", grupos_disponiveis, default=grupos_disponiveis)
 
     base_opcoes = producao[
         producao["REGIONAL_PAINEL"].isin(regionais)
-        & producao["MES_NUM"].eq(mes)
+        & producao["MES_NUM"].isin(meses)
         & producao["GRUPO_PAINEL"].isin(grupos)
+        & producao["DT_CONCLUSAO_DATA"].between(
+            pd.Timestamp(data_inicio),
+            pd.Timestamp(data_fim) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1),
+        )
     ]
     opcoes_projeto = sorted(
         p for p in base_opcoes["projeto_perdas"].dropna().astype(str).unique() if p
@@ -464,14 +487,9 @@ with st.sidebar:
 
 filtro = (
     producao["REGIONAL_PAINEL"].isin(regionais)
-    & producao["MES_NUM"].eq(mes)
+    & producao["MES_NUM"].isin(meses)
     & producao["GRUPO_PAINEL"].isin(grupos)
 )
-if isinstance(periodo, (tuple, list)):
-    data_inicio = periodo[0]
-    data_fim = periodo[-1] if len(periodo) > 1 else periodo[0]
-else:
-    data_inicio = data_fim = periodo
 data_inicio_ts = pd.Timestamp(data_inicio)
 data_fim_ts = pd.Timestamp(data_fim) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
 filtro &= producao["DT_CONCLUSAO_DATA"].between(data_inicio_ts, data_fim_ts)
@@ -497,14 +515,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-metas_mensais = obter_metas(metas, regionais, grupos, [mes], projetos)
-dias_selecionados = (data_fim - data_inicio).days + 1
-dias_no_mes = monthrange(2026, mes)[1]
-fator_periodo = max(0, min(dias_selecionados / dias_no_mes, 1))
-metas_filtro = {
-    indicador: valor * fator_periodo
-    for indicador, valor in metas_mensais.items()
-}
+# Soma as metas dos meses escolhidos. Quando o período usa somente parte de
+# algum mês, aplica a proporção de dias exclusivamente àquele mês.
+metas_filtro = {indicador: 0.0 for indicador in INDICADORES}
+for mes_numero in meses:
+    inicio_mes = pd.Timestamp(2026, mes_numero, 1).date()
+    fim_mes = pd.Timestamp(
+        2026, mes_numero, monthrange(2026, mes_numero)[1]
+    ).date()
+    inicio_util = max(data_inicio, inicio_mes)
+    fim_util = min(data_fim, fim_mes)
+    if inicio_util > fim_util:
+        continue
+    metas_mes = obter_metas(
+        metas, regionais, grupos, [mes_numero], projetos
+    )
+    dias_utilizados = (fim_util - inicio_util).days + 1
+    fator_mes = dias_utilizados / monthrange(2026, mes_numero)[1]
+    for indicador in INDICADORES:
+        metas_filtro[indicador] += metas_mes[indicador] * fator_mes
 realizados = {indicador: float(df[indicador].sum()) for indicador in INDICADORES}
 
 colunas = st.columns(4)
@@ -716,7 +745,11 @@ with st.expander("Consultar produção detalhada"):
     st.download_button(
         "Baixar seleção em CSV",
         detalhe.to_csv(index=False, sep=";", encoding="utf-8-sig"),
-        file_name=f"producao_{MESES[mes].lower()}_2026.csv",
+        file_name=(
+            f"producao_{meses[0]:02d}_a_{meses[-1]:02d}_2026.csv"
+            if len(meses) > 1
+            else f"producao_{MESES[meses[0]].lower()}_2026.csv"
+        ),
         mime="text/csv",
     )
 
