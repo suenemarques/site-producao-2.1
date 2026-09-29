@@ -55,6 +55,7 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base["ANO_NORM"] = pd.to_numeric(base["ANO_NORM"], errors="coerce").astype("Int64")
     base["REF_MES"] = pd.to_numeric(base["REF_MES"], errors="coerce").astype("Int64")
     base["REGIONAL_N"] = base["Regional"].map(normalizar)
+
     # O painel de Incremento é exclusivo das duas regionais da operação Sul.
     base.loc[base["REGIONAL_N"].str.contains("RIO VERDE", na=False), "REGIONAL_N"] = "04.RIO VERDE"
     base.loc[base["REGIONAL_N"].str.contains("MORRINHOS", na=False), "REGIONAL_N"] = "03.MORRINHOS"
@@ -79,6 +80,7 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
         if coluna not in metas.columns:
             metas[coluna] = ""
         metas[coluna] = metas[coluna].map(normalizar)
+
     mapa_mes = {normalizar(nome): numero for numero, nome in MESES.items()}
     metas["MES_NUM_META"] = metas["MES"].map(mapa_mes)
     metas.loc[metas["MES_NUM_META"].isna(), "MES_NUM_META"] = pd.to_numeric(
@@ -186,7 +188,10 @@ with st.sidebar:
     grupos_disp = [g for g in ["A", "B", "IP"] if g in set(base["GRUPO_N"])]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
     meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
-    meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
+    meses = st.multiselect(
+        "Mês do ganho", meses_disp, default=meses_disp,
+        format_func=lambda m: MESES[m].title()
+    )
     projetos_disp = sorted(base["PROJETO_N"].dropna().unique())
     projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
     if st.button("Atualizar leitura das bases", width="stretch"):
@@ -206,7 +211,8 @@ st.markdown('<div class="eyebrow">VISÃO ENERGÉTICA</div>', unsafe_allow_html=T
 st.markdown('<div class="page-title">Incremento</div>', unsafe_allow_html=True)
 st.markdown(
     f'<div class="subtitle">{ANO_ATUAL} · {formatar_inteiro(len(df))} registros filtrados · '
-    f'{", ".join(regionais) if regionais else "Nenhuma regional"}</div>', unsafe_allow_html=True
+    f'{", ".join(regionais) if regionais else "Nenhuma regional"}</div>',
+    unsafe_allow_html=True
 )
 
 metas_mes = obter_meta_mensal(metas, regionais, grupos, meses)
@@ -220,7 +226,10 @@ ticket = real_total / ucs if ucs else 0
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Incremento realizado", formatar_mwh(real_total))
 k2.metric("Meta", formatar_mwh(meta_total))
-k3.metric("Atingimento", f"{formatar_numero(real_total / meta_total * 100, 1)}%" if meta_total else "Sem meta")
+k3.metric(
+    "Atingimento",
+    f"{formatar_numero(real_total / meta_total * 100, 1)}%" if meta_total else "Sem meta"
+)
 k4.metric("Ticket médio por UC", formatar_mwh(ticket))
 k5, k6, k7 = st.columns(3)
 k5.metric("Residual", formatar_mwh(residual_total))
@@ -247,6 +256,7 @@ with c1:
     )
     fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
+
 with c2:
     evolucao = pd.DataFrame({"Mês número": meses})
     evolucao["Ganho (MWh)"] = evolucao["Mês número"].map(mensal_real).fillna(0)
@@ -259,7 +269,11 @@ with c2:
     fig = px.bar(
         evolucao, x="Mês", y="Ganho (MWh)", color="Situação",
         title="Ganho mensal", text="Rótulo",
-        color_discrete_map={"Crescimento": "#34D399", "Queda": "#F87171", "Primeiro mês": "#38BDF8"},
+        color_discrete_map={
+            "Crescimento": "#34D399",
+            "Queda": "#F87171",
+            "Primeiro mês": "#38BDF8"
+        },
     )
     fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
@@ -269,18 +283,27 @@ with t1:
     ticket_projeto = incremento.groupby("PROJETO_N").agg(
         Energia=("GANHO_MWH", "sum"), UCs=("UC", "nunique")
     ).reset_index()
-    ticket_projeto["Ticket médio (MWh)"] = ticket_projeto["Energia"].div(ticket_projeto["UCs"].replace(0, pd.NA)).fillna(0)
+    ticket_projeto["Ticket médio (MWh)"] = ticket_projeto["Energia"].div(
+        ticket_projeto["UCs"].replace(0, pd.NA)
+    ).fillna(0)
     ticket_projeto = ticket_projeto.sort_values("Ticket médio (MWh)")
     ticket_projeto["Rótulo"] = ticket_projeto["Ticket médio (MWh)"].map(formatar_mwh)
-    fig = px.bar(ticket_projeto, x="Ticket médio (MWh)", y="PROJETO_N", orientation="h",
-                 title="Ticket médio por projeto", text="Rótulo", color_discrete_sequence=["#A78BFA"])
+    fig = px.bar(
+        ticket_projeto, x="Ticket médio (MWh)", y="PROJETO_N", orientation="h",
+        title="Ticket médio por projeto", text="Rótulo",
+        color_discrete_sequence=["#A78BFA"]
+    )
     fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
+
 with t2:
     grupo = incremento.groupby("GRUPO_N", as_index=False)["GANHO_MWH"].sum()
     grupo["Rótulo"] = grupo["GANHO_MWH"].map(formatar_mwh)
-    fig = px.bar(grupo, x="GRUPO_N", y="GANHO_MWH", color="GRUPO_N", text="Rótulo",
-                 title="Incremento por grupo", color_discrete_map={"A": "#38BDF8", "B": "#34D399", "IP": "#F59E0B"})
+    fig = px.bar(
+        grupo, x="GRUPO_N", y="GANHO_MWH", color="GRUPO_N", text="Rótulo",
+        title="Incremento por grupo",
+        color_discrete_map={"A": "#38BDF8", "B": "#34D399", "IP": "#F59E0B"}
+    )
     fig.update_traces(textposition="outside", cliponaxis=False, showlegend=False)
     st.plotly_chart(tema(fig), width="stretch")
 
@@ -289,21 +312,37 @@ with d1:
     motivos = desconsiderado.groupby("MOTIVO_DESCONSIDERACAO", as_index=False).agg(
         Registros=("UC", "size"), Energia_MWh=("GANHO_MWH", "sum")
     ).sort_values("Registros")
-    fig = px.bar(motivos, x="Registros", y="MOTIVO_DESCONSIDERACAO", orientation="h",
-                 title="Incrementos desconsiderados e motivos", text="Registros",
-                 color_discrete_sequence=["#F87171"], hover_data={"Energia_MWh": ":.2f"})
+    fig = px.bar(
+        motivos, x="Registros", y="MOTIVO_DESCONSIDERACAO", orientation="h",
+        title="Incrementos desconsiderados e motivos", text="Registros",
+        color_discrete_sequence=["#F87171"], hover_data={"Energia_MWh": ":.2f"}
+    )
     fig.update_traces(textposition="outside", cliponaxis=False)
     st.plotly_chart(tema(fig), width="stretch")
+
 with d2:
-    residual_graf = residual.groupby(["ANO_NORM", "PROJETO_N"], as_index=False)["GANHO_MWH"].sum()
-    fig = px.bar(residual_graf, x="ANO_NORM", y="GANHO_MWH", color="PROJETO_N", barmode="stack",
-                 title="Residual por ano da normalização e projeto")
+    residual_graf = residual.groupby(
+        ["ANO_NORM", "PROJETO_N"], as_index=False
+    )["GANHO_MWH"].sum()
+    fig = px.bar(
+        residual_graf, x="ANO_NORM", y="GANHO_MWH", color="PROJETO_N",
+        barmode="stack", title="Residual por ano da normalização e projeto"
+    )
     st.plotly_chart(tema(fig), width="stretch")
 
 st.markdown("### Ganho mensal por unidade consumidora")
-pivot_uc = incremento.pivot_table(index="UC", columns="REF_MES", values="GANHO_MWH", aggfunc="sum", fill_value=0)
+
+# Nesta tabela, utiliza o ganho original em kWh, sem dividir por 1000.
+pivot_uc = incremento.pivot_table(
+    index="UC",
+    columns="REF_MES",
+    values="GANHO_FINAL",
+    aggfunc="sum",
+    fill_value=0
+)
 pivot_uc = pivot_uc.reindex(columns=meses, fill_value=0)
 pivot_uc.columns = [MESES[m].title() for m in pivot_uc.columns]
+
 
 def destacar_queda(linha: pd.Series) -> list[str]:
     estilos = [""] * len(linha)
@@ -311,6 +350,7 @@ def destacar_queda(linha: pd.Series) -> list[str]:
         if linha.iloc[indice] < linha.iloc[indice - 1]:
             estilos[indice] = "background-color:#7F1D1D;color:#FFFFFF;font-weight:700"
     return estilos
+
 
 st.dataframe(
     pivot_uc.style.apply(destacar_queda, axis=1).format(
@@ -335,12 +375,21 @@ st.download_button(
     file_name="validacao_incremento.csv", mime="text/csv",
 )
 
-origem = str(base["ARQUIVO_ORIGEM"].dropna().iloc[0]) if "ARQUIVO_ORIGEM" in base and not base["ARQUIVO_ORIGEM"].dropna().empty else "Base Incremento"
-atualizado = str(base["ATUALIZADO_EM"].dropna().iloc[0]) if "ATUALIZADO_EM" in base and not base["ATUALIZADO_EM"].dropna().empty else "Não informado"
+origem = (
+    str(base["ARQUIVO_ORIGEM"].dropna().iloc[0])
+    if "ARQUIVO_ORIGEM" in base and not base["ARQUIVO_ORIGEM"].dropna().empty
+    else "Base Incremento"
+)
+atualizado = (
+    str(base["ATUALIZADO_EM"].dropna().iloc[0])
+    if "ATUALIZADO_EM" in base and not base["ATUALIZADO_EM"].dropna().empty
+    else "Não informado"
+)
 try:
     atualizado = pd.Timestamp(atualizado).strftime("%d/%m/%Y às %H:%M")
 except Exception:
     pass
+
 st.caption(
     f"Dados atualizados em: {atualizado} · Origem: {origem} · "
     "Incremento considera Data_Norm no ano atual e Desconsiderar vazio; anos anteriores são residuais."
