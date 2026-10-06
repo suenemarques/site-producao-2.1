@@ -30,7 +30,7 @@ def media_equipe(dados, coluna):
 
 def classificar_mepe(pontos):
     if pd.isna(pontos): return "Não informada"
-    if pontos >= 80: return "A"
+    if pontos > 100: return "A"
     if pontos >= 60: return "B"
     if pontos >= 40: return "C"
     return "D"
@@ -113,20 +113,11 @@ quadro["Realizado INC (kWh)"] = soma_equipe(df, col_real_inc).reindex(indice_equ
 quadro["Pontuação INC"] = media_equipe(df, "PONT_INC").reindex(indice_equipes)
 quadro["Classe INC"] = [classificar_indicador(m, r) for m, r in zip(quadro["Meta INC (kWh)"], quadro["Realizado INC (kWh)"])]
 quadro["Pontuação Total"] = media_equipe(df, "PONT_TOTAL").reindex(indice_equipes)
-if col_classe:
-    classes = (
-        df.sort_values("MES_REF")
-        .dropna(subset=[col_classe])
-        .groupby("PRX_DESCRICAO")[col_classe]
-        .last()
-    )
-    quadro["Classificação"] = classes.reindex(indice_equipes).fillna("Não informada")
-else:
-    quadro["Classificação"] = quadro["Pontuação Total"].map(classificar_mepe)
+quadro["Classificação"] = quadro["Pontuação Total"].map(classificar_mepe)
 quadro = quadro.reset_index()
 
 st.subheader("Meta x realizado e classificação por equipe")
-st.caption("Metas e realizados são somados; pontuações usam a média mensal. Classe CNR: A ≥ 30 pontos, B de 22,8 a 29,99, C de 21 a 22,79 e D < 21. UPS e Incremento: A ≥ 100%, B ≥ 85%, C ≥ 70% e D < 70% da meta. Classificação total: A ≥ 80, B ≥ 60, C ≥ 40 e D < 40 pontos.")
+st.caption("Metas e realizados são somados; pontuações usam a média mensal. Classe CNR: A ≥ 30 pontos, B de 22,8 a 29,99, C de 21 a 22,79 e D < 21. UPS e Incremento: A ≥ 100%, B ≥ 85%, C ≥ 70% e D < 70% da meta. Classificação total: A > 100, B de 60 a 100, C de 40 a menos de 60 e D < 40 pontos.")
 formatos = {
     "Meta UPS": "{:,.2f}", "Realizado UPS": "{:,.2f}", "Pontuação UPS": "{:,.2f}",
     "Meta CNR (kWh)": "{:,.2f}", "Realizado CNR (kWh)": "{:,.2f}", "Pontuação CNR": "{:,.2f}",
