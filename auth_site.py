@@ -71,6 +71,7 @@ def exigir_login() -> dict[str, str]:
           z-index: 999990 !important;
           pointer-events: auto !important;
         }
+        .stApp [data-testid="stToolbar"],
         .stApp [data-testid="stHeaderActionElements"],
         .stApp [data-testid="stSidebarHeader"],
         .stApp [data-testid="stSidebarCollapseButton"],
@@ -102,8 +103,9 @@ def exigir_login() -> dict[str, str]:
           pointer-events: auto !important;
         }
         .stApp section[data-testid="stSidebar"] {z-index: 999995 !important;}
-        /* Oculta as ações superiores; mantém os controles laterais separados. */
-        .stApp [data-testid="stToolbar"],
+        /* As ações superiores são escondidas sem remover o contêiner. */
+        .stApp [data-testid="stToolbar"] button:not([aria-label*="sidebar" i]):not([title*="sidebar" i]):not([data-testid="stExpandSidebarButton"]):not([data-testid="stSidebarCollapseButton"] *):not([data-testid="stSidebarCollapsedControl"] *):not([data-testid="collapsedControl"] *),
+        .stApp [data-testid="stToolbar"] a:not([data-testid="stSidebarCollapsedControl"] *):not([data-testid="collapsedControl"] *),
         .stApp [data-testid="stAppDeployButton"],
         .stApp [data-testid="stMainMenu"],
         .stApp #MainMenu {
