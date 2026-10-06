@@ -430,6 +430,50 @@ st.markdown(
     div[data-testid="stPlotlyChart"] {background:rgba(11,23,40,.90);backdrop-filter:blur(10px);border:1px solid #1E3047;
       border-radius:16px;padding:.25rem .55rem;}
     div[data-testid="stDataFrame"] {border:1px solid #1E3047;border-radius:14px;overflow:hidden;}
+    /* Mantém os filtros acessíveis mesmo se a sessão guardar a barra recolhida. */
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+      display: block !important;
+      visibility: visible !important;
+      position: relative !important;
+      width: 320px !important;
+      min-width: 320px !important;
+      max-width: 320px !important;
+      flex: 0 0 320px !important;
+      margin-left: 0 !important;
+      left: 0 !important;
+      transform: none !important;
+      opacity: 1 !important;
+      background: #0B1728;
+      border-right: 1px solid #1E3047;
+    }
+    section[data-testid="stSidebar"] > div,
+    [data-testid="stSidebarContent"] {
+      display: block !important;
+      visibility: visible !important;
+      width: 100% !important;
+      transform: none !important;
+      opacity: 1 !important;
+    }
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"],
+    [data-testid="stExpandSidebarButton"] {
+      display: none !important;
+    }
+    @media (max-width: 768px) {
+      section[data-testid="stAppViewContainer"] {flex-direction: column !important;}
+      section[data-testid="stSidebar"],
+      section[data-testid="stSidebar"][aria-expanded="false"] {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: 0 0 auto !important;
+        height: auto !important;
+      }
+      section[data-testid="stSidebar"] > div,
+      [data-testid="stSidebarContent"] {height: auto !important;}
+    }
     </style>
     """,
     unsafe_allow_html=True,
