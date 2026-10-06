@@ -71,7 +71,6 @@ def exigir_login() -> dict[str, str]:
           z-index: 999990 !important;
           pointer-events: auto !important;
         }
-        .stApp [data-testid="stToolbar"],
         .stApp [data-testid="stHeaderActionElements"],
         .stApp [data-testid="stSidebarHeader"],
         .stApp [data-testid="stSidebarCollapseButton"],
@@ -103,6 +102,14 @@ def exigir_login() -> dict[str, str]:
           pointer-events: auto !important;
         }
         .stApp section[data-testid="stSidebar"] {z-index: 999995 !important;}
+        /* Oculta as ações superiores; mantém os controles laterais separados. */
+        .stApp [data-testid="stToolbar"],
+        .stApp [data-testid="stAppDeployButton"],
+        .stApp [data-testid="stMainMenu"],
+        .stApp #MainMenu {
+          display: none !important;
+          visibility: hidden !important;
+        }
         </style>""",
         unsafe_allow_html=True,
     )
