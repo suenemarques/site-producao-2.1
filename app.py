@@ -363,42 +363,7 @@ st.markdown(
       scrollbar-width:thin; scrollbar-color:rgba(56,189,248,.55) rgba(11,23,40,.25);
     }
     [data-testid="stSidebarNav"] {display:none;}
-    /* Mantém o cabeçalho e o botão de reabrir acima do fundo animado. */
-    [data-testid="stHeader"] {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      z-index: 999990 !important;
-      display: flex !important;
-      visibility: visible !important;
-      background: rgba(7,17,31,.72);
-      backdrop-filter: blur(12px);
-    }
-    [data-testid="stToolbar"],
-    [data-testid="stHeaderActionElements"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"],
-    [data-testid="stExpandSidebarButton"],
-    [data-testid="stSidebarCollapseButton"] {
-      display: flex !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      color: #FFFFFF !important;
-    }
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"],
-    [data-testid="stExpandSidebarButton"] {
-      position: fixed !important;
-      top: 12px !important;
-      left: 12px !important;
-      z-index: 999999 !important;
-      background: #10243A !important;
-      border: 1px solid #38BDF8 !important;
-      border-radius: 8px !important;
-    }
-    [data-testid="stSidebar"] {z-index: 999995 !important;}
+    [data-testid="stHeader"] {background: rgba(7,17,31,.72);}
     [data-testid="stAppDeployButton"], [data-testid="stMainMenu"],
     #MainMenu, footer {display:none!important; visibility:hidden!important;}
     h1, h2, h3 {letter-spacing: -.035em;}
@@ -430,50 +395,6 @@ st.markdown(
     div[data-testid="stPlotlyChart"] {background:rgba(11,23,40,.90);backdrop-filter:blur(10px);border:1px solid #1E3047;
       border-radius:16px;padding:.25rem .55rem;}
     div[data-testid="stDataFrame"] {border:1px solid #1E3047;border-radius:14px;overflow:hidden;}
-    /* Mantém os filtros acessíveis mesmo se a sessão guardar a barra recolhida. */
-    section[data-testid="stSidebar"],
-    section[data-testid="stSidebar"][aria-expanded="false"] {
-      display: block !important;
-      visibility: visible !important;
-      position: relative !important;
-      width: 320px !important;
-      min-width: 320px !important;
-      max-width: 320px !important;
-      flex: 0 0 320px !important;
-      margin-left: 0 !important;
-      left: 0 !important;
-      transform: none !important;
-      opacity: 1 !important;
-      background: #0B1728;
-      border-right: 1px solid #1E3047;
-    }
-    section[data-testid="stSidebar"] > div,
-    [data-testid="stSidebarContent"] {
-      display: block !important;
-      visibility: visible !important;
-      width: 100% !important;
-      transform: none !important;
-      opacity: 1 !important;
-    }
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"],
-    [data-testid="stExpandSidebarButton"] {
-      display: none !important;
-    }
-    @media (max-width: 768px) {
-      section[data-testid="stAppViewContainer"] {flex-direction: column !important;}
-      section[data-testid="stSidebar"],
-      section[data-testid="stSidebar"][aria-expanded="false"] {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        flex: 0 0 auto !important;
-        height: auto !important;
-      }
-      section[data-testid="stSidebar"] > div,
-      [data-testid="stSidebarContent"] {height: auto !important;}
-    }
     </style>
     """,
     unsafe_allow_html=True,
