@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from auth_site import acesso_geral, exigir_login, filtrar_por_acesso
+from auth_site import exigir_login, filtrar_por_acesso
 
 
 st.set_page_config(
