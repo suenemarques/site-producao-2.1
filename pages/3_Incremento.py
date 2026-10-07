@@ -368,10 +368,28 @@ colunas = [
 ]
 colunas = [c for c in colunas if c in df.columns]
 validacao = df[colunas].sort_values("GANHO_MWH", ascending=False)
-st.dataframe(validacao, width="stretch", hide_index=True, height=470)
+
+# Exibe os valores com separador de milhar e vírgula decimal.
+# A coluna permanece numérica.
+st.dataframe(
+    validacao.style.format(
+        {"GANHO_MWH": formatar_numero},
+        na_rep="",
+    ),
+    width="stretch", hide_index=True, height=470,
+)
+
+# Exporta com vírgula decimal para o Excel em português.
+csv_validacao = validacao.to_csv(
+    index=False,
+    sep=";",
+    decimal=",",
+    float_format="%.2f",
+).encode("utf-8-sig")
+
 st.download_button(
     "Baixar base filtrada de Incremento",
-    validacao.to_csv(index=False, sep=";", encoding="utf-8-sig"),
+    csv_validacao,
     file_name="validacao_incremento.csv", mime="text/csv",
 )
 
