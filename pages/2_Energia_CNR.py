@@ -8,13 +8,34 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
-from tema_neon import aplicar_tema_neon, menu_lateral
 
+
+REGIONAIS = {"MORRINHOS": "03.Morrinhos", "RIO VERDE": "04.Rio Verde",
+             "IPORA": "05.Iporá", "MONTES BELOS": "06.Montes Belos"}
+
+def regional_padrao(valor):
+    texto = "" if pd.isna(valor) else str(valor).strip().upper()
+    texto = "".join(c for c in unicodedata.normalize("NFKD", texto)
+                    if not unicodedata.combining(c))
+    texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto)
+    texto = re.sub(r"[^A-Z0-9]+", " ", texto).strip()
+    for nome, rotulo in REGIONAIS.items():
+        if re.search(r"(?:^| )" + re.escape(nome) + r"(?: |$)", texto):
+            return rotulo
+    return texto
+
+def grupo_padrao(valor):
+    texto = "" if pd.isna(valor) else str(valor).strip().upper()
+    return {"AT":"A", "BT":"B", "GRUPO A":"A", "GRUPO B":"B",
+            "GRUPO IP":"IP"}.get(texto, texto)
+
+def quantidade_meta(serie):
+    texto = serie.fillna("").astype(str).str.strip()
+    virgula = texto.str.contains(",", regex=False)
+    texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    return pd.to_numeric(texto, errors="coerce").fillna(0)
 
 st.set_page_config(page_title="Energia CNR", page_icon="⚡", layout="wide")
-aplicar_tema_neon()
-usuario = exigir_login()
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ARQ_CNR = BASE_DIR / "dados" / "cnr_2026.parquet"
@@ -59,8 +80,8 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     cnr["FISCAL_CICLO_STATUS_MES"] = pd.to_numeric(
         cnr["FISCAL_CICLO_STATUS_MES"], errors="coerce"
     ).astype("Int64")
-    cnr["REGIONAL"] = cnr["NOVA_REGIONAL"].map(normalizar)
-    cnr["GRUPO"] = cnr["GRUPO_CNR"].map(normalizar)
+    cnr["REGIONAL"] = cnr["NOVA_REGIONAL"].map(regional_padrao)
+    cnr["GRUPO"] = cnr["GRUPO_CNR"].map(grupo_padrao)
     cnr["STATUS_ROTULO"] = cnr["STATUS_CNR_EQTL"].map(rotulo_status)
     cnr["PROJETO"] = cnr["PROJETO_PERDA"].fillna("Não informado").replace("", "Não informado")
     cnr["IRREGULARIDADE"] = cnr["TIPO_IRREGULARIDADE_TOI"].fillna("Não informado").replace("", "Não informado")
@@ -69,58 +90,43 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     cnr["MES_NOME"] = cnr["FISCAL_CICLO_STATUS_MES"].map(MESES)
 
     metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [str(c).strip() for c in metas.columns]
+    metas.columns = [str(c).strip().upper() for c in metas.columns]
     metas.rename(columns={"MÊS": "MES"}, inplace=True)
     for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
         if coluna not in metas.columns:
             metas[coluna] = ""
         metas[coluna] = metas[coluna].map(normalizar)
-    metas["QUANTIDADE"] = pd.to_numeric(metas.get("QUANTIDADE", 0), errors="coerce").fillna(0)
+    metas["REGIONAL"] = metas["REGIONAL"].map(regional_padrao)
+    metas["GRUPO"] = metas["GRUPO"].map(grupo_padrao)
+    metas["QUANTIDADE"] = quantidade_meta(metas.get("QUANTIDADE", pd.Series(0, index=metas.index)))
+    mapa_mes = {normalizar(nome): numero for numero, nome in MESES.items()}
+    metas["MES_NUM_META"] = metas["MES"].map(mapa_mes).fillna(pd.to_numeric(metas["MES"], errors="coerce"))
     return cnr, metas
 
 
 def meta_cnr(metas: pd.DataFrame, regionais: list[str], grupos: list[str], meses: list[int]) -> dict[str, float]:
-    # A base CNR usa 03.MORRINHOS/04.RIO VERDE, enquanto a planilha de metas
-    # normalmente usa MORRINHOS/RIO VERDE. Remove o código para comparar.
-    regionais_meta = {
-        re.sub(r"^\d+\s*[.\-]?\s*", "", normalizar(regional))
-        for regional in regionais
-    }
-    regional_meta_normalizada = metas["REGIONAL"].str.replace(
-        r"^\d+\s*[.\-]?\s*", "", regex=True
-    )
-    meses_meta = {normalizar(MESES[m]) for m in meses}
     base = metas[
-        regional_meta_normalizada.isin(regionais_meta)
-        & metas["MES"].isin(meses_meta)
+        metas["REGIONAL"].isin(regionais)
+        & metas["MES_NUM_META"].isin(meses)
+        & metas["TIPO DA META"].str.contains("CNR", na=False)
+        & ~metas["TIPO DA META"].str.contains("POR EQUIPE", na=False)
     ].copy()
-    tipos_por_grupo = {
-        "A": "CNR AT",
-        "B": "CNR BT",
-        "IP": "CNR IP",
-    }
     resultado: dict[str, float] = {}
     for grupo in grupos:
-        grupo_n = normalizar(grupo)
-        tipo_meta = tipos_por_grupo.get(grupo_n)
-        if not tipo_meta:
-            resultado[grupo] = 0.0
-            continue
-
-        # Usa somente a meta regional exata da tela de CNR.
-        # "CNR POR EQUIPE BT" pertence ao MEPE e não pode ser somada aqui.
-        linhas = base[
-            base["GRUPO"].eq(grupo_n)
-            & base["TIPO DA META"].eq(tipo_meta)
-        ]
-
-        # Compatibilidade com planilhas antigas em que a coluna GRUPO
-        # eventualmente esteja vazia, preservando o tipo exato da meta.
-        if linhas.empty:
-            linhas = base[base["TIPO DA META"].eq(tipo_meta)]
-
-        resultado[grupo] = float(linhas["QUANTIDADE"].sum())
+        total = 0.0
+        for regional in regionais:
+            regional_base = base[base["REGIONAL"].eq(regional)]
+            por_coluna = regional_base[regional_base["GRUPO"].eq(grupo)]
+            expressao = {"IP": r"\bIP\b", "A": r"\bAT\b|GRUPO A", "B": r"\bBT\b|GRUPO B"}.get(grupo, r"(?!)")
+            por_tipo = regional_base[
+                regional_base["TIPO DA META"].str.contains(expressao, regex=True, na=False)
+                & regional_base["GRUPO"].eq("")
+            ]
+            linhas = por_coluna if not por_coluna.empty else por_tipo
+            total += float(linhas["QUANTIDADE"].sum())
+        resultado[grupo] = total
     return resultado
+
 
 
 def tema(fig, altura: int = 390):
@@ -161,14 +167,13 @@ except Exception as erro:
     st.info("Execute primeiro o atualizador para gerar dados/cnr_2026.parquet.")
     st.stop()
 
-cnr = filtrar_por_acesso(cnr, "REGIONAL", usuario["ACESSO"])
-
 with st.sidebar:
-    menu_lateral("cnr")
+    st.markdown("### ⚡ Energia CNR")
+    st.caption("Recuperação de Energia · Sul")
     st.markdown("---")
-    regionais_disp = [r for r in ["03.MORRINHOS", "04.RIO VERDE"] if r in set(cnr["REGIONAL"])]
+    regionais_disp = list(REGIONAIS.values())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
-    grupos_disp = [g for g in ["A", "B", "IP"] if g in set(cnr["GRUPO"])]
+    grupos_disp = [g for g in ["A", "B", "IP"] if g in (set(cnr["GRUPO"]) | set(metas["GRUPO"]))]
     grupos = st.multiselect("Grupo CNR", grupos_disp, default=grupos_disp)
     meses_disp = sorted(cnr["FISCAL_CICLO_STATUS_MES"].dropna().astype(int).unique())
     meses = st.multiselect("Mês do status", meses_disp, default=list(meses_disp), format_func=lambda m: MESES[m].title())
