@@ -31,6 +31,22 @@ def quantidade_meta(serie):
     texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     return pd.to_numeric(texto, errors="coerce").fillna(0)
 
+
+def menu_completo(pagina_atual):
+    raiz = Path(__file__).resolve().parents[1]
+    paginas = [
+        ("app.py", "Produção", "📊"),
+        ("pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
+        ("pages/3_Incremento.py", "Incremento", "📈"),
+        ("pages/4_MEPE.py", "MEPE", "🎯"),
+        ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
+    ]
+    for caminho, titulo, icone in paginas:
+        if (raiz / caminho).is_file():
+            st.page_link(caminho, label=titulo, icon=icone,
+                         disabled=caminho == pagina_atual, width="stretch")
+
 st.set_page_config(page_title="MEPE", page_icon="🎯", layout="wide")
 BASE = Path(__file__).resolve().parents[1]
 ARQ = BASE / "dados" / "mepe.parquet"
@@ -55,12 +71,8 @@ df0 = carregar()
 df0["REGIONAL_MEPE"] = df0["REGIONAL_MEPE"].map(regional_padrao)
 with st.sidebar:
     st.markdown("### 🎯 MEPE"); st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for arq,label,icone in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈")]:
-        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
-    st.button("🎯 MEPE",disabled=True,width="stretch")
-    for arq,label,icone in [("5_CAPEX_OPEX.py","CAPEX e OPEX","💰"),("6_Validacao_turnos.py","Validação de Turnos","🕒")]:
-        if (BASE/"pages"/arq).is_file(): st.page_link(f"pages/{arq}",label=label,icon=icone,width="stretch")
+    menu_completo("pages/4_MEPE.py")
+    st.markdown("---")
     st.markdown("---")
     regs=st.multiselect("Regional",list(REGIONAIS.values()),default=list(REGIONAIS.values()))
     meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
