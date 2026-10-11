@@ -32,6 +32,22 @@ def quantidade_meta(serie):
     texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     return pd.to_numeric(texto, errors="coerce").fillna(0)
 
+
+def menu_completo(pagina_atual):
+    raiz = Path(__file__).resolve().parents[1]
+    paginas = [
+        ("app.py", "Produção", "📊"),
+        ("pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
+        ("pages/3_Incremento.py", "Incremento", "📈"),
+        ("pages/4_MEPE.py", "MEPE", "🎯"),
+        ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
+    ]
+    for caminho, titulo, icone in paginas:
+        if (raiz / caminho).is_file():
+            st.page_link(caminho, label=titulo, icon=icone,
+                         disabled=caminho == pagina_atual, width="stretch")
+
 st.set_page_config(page_title="Validação de Turnos",page_icon="🕒",layout="wide")
 BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"validacao_turnos.parquet"; METAS=BASE/"METAS 2026.xlsx"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
@@ -52,10 +68,8 @@ if not meses_disp:
     st.stop()
 with st.sidebar:
     st.markdown("### 🕒 Validação de Turnos"); st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯"),("5_CAPEX_OPEX.py","CAPEX e OPEX","💰")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
-    st.button("🕒 Validação de Turnos",disabled=True,width="stretch"); st.markdown("---")
+    menu_completo("pages/6_Validacao_turnos.py")
+    st.markdown("---")
     regs=st.multiselect("Regional",list(REGIONAIS.values()),default=list(REGIONAIS.values()))
     almoco_novas=st.number_input("Almoço Iporá/Montes Belos (min)", min_value=0, max_value=180, value=60, step=5)
     mes=st.selectbox("Mês",meses_disp,index=len(meses_disp)-1,format_func=lambda x:MESES[x])
