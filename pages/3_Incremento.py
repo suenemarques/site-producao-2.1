@@ -35,6 +35,22 @@ def quantidade_meta(serie):
     texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     return pd.to_numeric(texto, errors="coerce").fillna(0)
 
+
+def menu_completo(pagina_atual):
+    raiz = Path(__file__).resolve().parents[1]
+    paginas = [
+        ("app.py", "Produção", "📊"),
+        ("pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
+        ("pages/3_Incremento.py", "Incremento", "📈"),
+        ("pages/4_MEPE.py", "MEPE", "🎯"),
+        ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
+    ]
+    for caminho, titulo, icone in paginas:
+        if (raiz / caminho).is_file():
+            st.page_link(caminho, label=titulo, icon=icone,
+                         disabled=caminho == pagina_atual, width="stretch")
+
 st.set_page_config(page_title="Incremento", page_icon="📈", layout="wide")
 
 ANO_ATUAL = 2026
@@ -67,6 +83,70 @@ def formatar_inteiro(valor: int | float) -> str:
     return f"{valor:,.0f}".replace(",", ".")
 
 
+
+def chave_meta(valor):
+    return re.sub(r"[^A-Z0-9]", "", normalizar(valor))
+
+def mes_meta(valor):
+    if pd.isna(valor):
+        return pd.NA
+    if isinstance(valor, (pd.Timestamp,)) or hasattr(valor, "month"):
+        return valor.month
+    texto = normalizar(valor)
+    try:
+        numero = float(texto.replace(",", "."))
+        if numero.is_integer() and 1 <= numero <= 12:
+            return int(numero)
+    except ValueError:
+        pass
+    for numero, nome in MESES.items():
+        if texto == normalizar(nome) or texto[:3] == normalizar(nome)[:3]:
+            return numero
+    if re.fullmatch(r"\d{6}", texto) and texto.startswith("20"):
+        numero = int(texto[4:6])
+        return numero if 1 <= numero <= 12 else pd.NA
+    if re.fullmatch(r"\d{1,2}[/.-]20\d{2}", texto):
+        numero = int(re.split(r"[/.-]", texto)[0])
+        return numero if 1 <= numero <= 12 else pd.NA
+    if re.fullmatch(r"20\d{2}[-/]\d{1,2}", texto):
+        numero = int(re.split(r"[-/]", texto)[1])
+        return numero if 1 <= numero <= 12 else pd.NA
+    return pd.NA
+
+def ler_metas_painel(caminho):
+    aliases = {"REGIONAL":"REGIONAL", "NOVAREGIONAL":"REGIONAL", "MES":"MES",
+               "MESREFERENCIA":"MES", "GRUPO":"GRUPO", "TIPODAMETA":"TIPO DA META",
+               "TIPOMETA":"TIPO DA META", "QUANTIDADE":"QUANTIDADE", "QTD":"QUANTIDADE"}
+    with pd.ExcelFile(caminho) as planilha:
+        abas = sorted(planilha.sheet_names, key=lambda a: chave_meta(a) != "METAS2026")
+        for aba in abas:
+            previa = pd.read_excel(planilha, sheet_name=aba, header=None, nrows=40)
+            for indice, linha in previa.iterrows():
+                nomes = {aliases.get(chave_meta(v)) for v in linha}
+                if {"REGIONAL", "MES", "TIPO DA META", "QUANTIDADE"}.issubset(nomes):
+                    metas = pd.read_excel(planilha, sheet_name=aba, header=int(indice))
+                    metas.columns = [aliases.get(chave_meta(c), str(c).strip()) for c in metas.columns]
+                    metas = metas.loc[:, ~metas.columns.duplicated()].copy()
+                    if "GRUPO" not in metas:
+                        metas["GRUPO"] = ""
+                    metas["REGIONAL"] = metas["REGIONAL"].map(regional_padrao)
+                    metas["MES_NUM_META"] = metas["MES"].map(mes_meta)
+                    metas["TIPO DA META"] = metas["TIPO DA META"].map(normalizar)
+                    metas["GRUPO"] = metas["GRUPO"].map(grupo_padrao)
+                    metas["QUANTIDADE"] = quantidade_meta(metas["QUANTIDADE"])
+                    def grupo_linha(linha):
+                        tipo = re.sub(r"[^A-Z0-9]+", " ", linha["TIPO DA META"])
+                        for grupo, expressao in [("IP", r"\bIP\b|ILUMINACAO PUBLICA"),
+                                                 ("A", r"\bAT\b|GRUPO A|\bCNR A\b|\bINCREMENTO A\b"),
+                                                 ("B", r"\bBT\b|GRUPO B|\bCNR B\b|\bINCREMENTO B\b")]:
+                            if re.search(expressao, tipo):
+                                return grupo
+                        return linha["GRUPO"]
+                    metas["GRUPO"] = metas.apply(grupo_linha, axis=1)
+                    metas.attrs["aba_origem"] = aba
+                    return metas
+    raise ValueError("Não localizei REGIONAL, MES, TIPO DA META e QUANTIDADE no Excel de metas.")
+
 @st.cache_data(ttl=900, show_spinner=False)
 def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base = pd.read_parquet(ARQ_INCREMENTO)
@@ -88,21 +168,7 @@ def carregar() -> tuple[pd.DataFrame, pd.DataFrame]:
     base.loc[base["DESC_N"].eq("") & base["ANO_NORM"].lt(ANO_ATUAL), "TIPO_GANHO"] = "Residual"
     base["MES_NOME"] = base["REF_MES"].map(lambda m: MESES.get(int(m), "") if pd.notna(m) else "")
 
-    metas = pd.read_excel(ARQ_METAS, sheet_name="METAS 2026")
-    metas.columns = [str(c).strip().upper() for c in metas.columns]
-    metas.rename(columns={"MÊS": "MES"}, inplace=True)
-    for coluna in ["REGIONAL", "MES", "GRUPO", "TIPO DA META"]:
-        if coluna not in metas.columns:
-            metas[coluna] = ""
-        metas[coluna] = metas[coluna].map(normalizar)
-    mapa_mes = {normalizar(nome): numero for numero, nome in MESES.items()}
-    metas["MES_NUM_META"] = metas["MES"].map(mapa_mes)
-    metas.loc[metas["MES_NUM_META"].isna(), "MES_NUM_META"] = pd.to_numeric(
-        metas.loc[metas["MES_NUM_META"].isna(), "MES"], errors="coerce"
-    )
-    metas["REGIONAL"] = metas["REGIONAL"].map(regional_padrao)
-    metas["GRUPO"] = metas["GRUPO"].map(grupo_padrao)
-    metas["QUANTIDADE"] = quantidade_meta(metas.get("QUANTIDADE", pd.Series(0, index=metas.index)))
+    metas = ler_metas_painel(ARQ_METAS)
     return base, metas
 
 
@@ -177,16 +243,13 @@ except Exception as erro:
 with st.sidebar:
     st.markdown("### 📈 Incremento")
     st.caption("Recuperação de Energia · Sul")
-    st.markdown('<a class="nav-producao" href="/" target="_self">📊 Produção</a>', unsafe_allow_html=True)
-    if (BASE_DIR / "pages" / "2_Energia_CNR.py").is_file():
-        st.page_link("pages/2_Energia_CNR.py", label="Energia CNR", icon="⚡", width="stretch")
-    st.button("📈 Incremento", disabled=True, width="stretch")
+    menu_completo("pages/3_Incremento.py")
     st.markdown("---")
     regionais_disp = list(REGIONAIS.values())
     regionais = st.multiselect("Regional", regionais_disp, default=regionais_disp)
     grupos_disp = [g for g in ["A", "B", "IP"] if g in (set(base["GRUPO_N"]) | set(metas["GRUPO"]))]
     grupos = st.multiselect("Grupo", grupos_disp, default=grupos_disp)
-    meses_disp = sorted(base["REF_MES"].dropna().astype(int).unique())
+    meses_disp = sorted((set(base["REF_MES"].dropna().astype(int)) | set(metas["MES_NUM_META"].dropna().astype(int))) & set(range(1,13)))
     meses = st.multiselect("Mês do ganho", meses_disp, default=meses_disp, format_func=lambda m: MESES[m].title())
     projetos_disp = sorted(base["PROJETO_N"].dropna().unique())
     projetos = st.multiselect("Projeto", projetos_disp, default=projetos_disp)
@@ -346,3 +409,10 @@ st.caption(
     f"Dados atualizados em: {atualizado} · Origem: {origem} · "
     "Incremento considera Data_Norm no ano atual e Desconsiderar vazio; anos anteriores são residuais."
 )
+
+with st.expander("Conferir metas carregadas do Excel"):
+    metas_selecao = metas[metas["REGIONAL"].isin(regionais)]
+    st.caption("Arquivo: METAS 2026.xlsx · Aba: " + metas.attrs.get("aba_origem", ""))
+    st.dataframe(metas_selecao[["REGIONAL", "MES", "MES_NUM_META", "GRUPO", "TIPO DA META", "QUANTIDADE"]], hide_index=True, width="stretch")
+    if metas_selecao.empty:
+        st.warning("A cópia de METAS 2026.xlsx carregada pelo site não contém metas para as regionais selecionadas. Atualize o Excel no repositório ou execute o atualizador V30.")
