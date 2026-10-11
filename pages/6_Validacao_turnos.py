@@ -1,15 +1,38 @@
+import re
+import unicodedata
 from pathlib import Path
 from calendar import monthrange
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
-from tema_neon import aplicar_tema_neon, menu_lateral
+
+REGIONAIS = {"MORRINHOS": "03.Morrinhos", "RIO VERDE": "04.Rio Verde",
+             "IPORA": "05.Iporá", "MONTES BELOS": "06.Montes Belos"}
+
+def regional_padrao(valor):
+    texto = "" if pd.isna(valor) else str(valor).strip().upper()
+    texto = "".join(c for c in unicodedata.normalize("NFKD", texto)
+                    if not unicodedata.combining(c))
+    texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto)
+    texto = re.sub(r"[^A-Z0-9]+", " ", texto).strip()
+    for nome, rotulo in REGIONAIS.items():
+        if re.search(r"(?:^| )" + re.escape(nome) + r"(?: |$)", texto):
+            return rotulo
+    return texto
+
+def grupo_padrao(valor):
+    texto = "" if pd.isna(valor) else str(valor).strip().upper()
+    return {"AT":"A", "BT":"B", "GRUPO A":"A", "GRUPO B":"B",
+            "GRUPO IP":"IP"}.get(texto, texto)
+
+def quantidade_meta(serie):
+    texto = serie.fillna("").astype(str).str.strip()
+    virgula = texto.str.contains(",", regex=False)
+    texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    return pd.to_numeric(texto, errors="coerce").fillna(0)
 
 st.set_page_config(page_title="Validação de Turnos",page_icon="🕒",layout="wide")
-aplicar_tema_neon()
-usuario = exigir_login()
 BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"validacao_turnos.parquet"; METAS=BASE/"METAS 2026.xlsx"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 def inteiro(v): return f"{v:,.0f}".replace(",",".")
@@ -23,10 +46,18 @@ def carregar():
     d=pd.read_parquet(ARQ)
     for c in ["DATA_TURNO","DT_BAIXA","HOST_VI_DT_INI_DESLOCAMENTO","HOST_VI_DT_FIM_DESLOCAMENTO","HOST_VI_DT_INI_SERVICO","HOST_VI_DT_FIM_SERVICO"]: d[c]=pd.to_datetime(d[c],errors="coerce")
     return d
-d0=carregar(); d0=filtrar_por_acesso(d0,"REGIONAL_TURNO",usuario["ACESSO"]); meses_disp=sorted(d0.DATA_TURNO.dt.month.dropna().astype(int).unique())
+d0=carregar(); d0["REGIONAL_TURNO"]=d0["REGIONAL_TURNO"].map(regional_padrao); meses_disp=sorted(d0.DATA_TURNO.dt.month.dropna().astype(int).unique())
+if not meses_disp:
+    st.info("Base de turnos sem datas válidas. Execute o atualizador atualizado.")
+    st.stop()
 with st.sidebar:
-    menu_lateral("turnos"); st.markdown("---")
-    regs=st.multiselect("Regional",sorted(d0.REGIONAL_TURNO.unique()),default=sorted(d0.REGIONAL_TURNO.unique()))
+    st.markdown("### 🕒 Validação de Turnos"); st.caption("Recuperação de Energia · Sul")
+    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
+    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯"),("5_CAPEX_OPEX.py","CAPEX e OPEX","💰")]:
+        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
+    st.button("🕒 Validação de Turnos",disabled=True,width="stretch"); st.markdown("---")
+    regs=st.multiselect("Regional",list(REGIONAIS.values()),default=list(REGIONAIS.values()))
+    almoco_novas=st.number_input("Almoço Iporá/Montes Belos (min)", min_value=0, max_value=180, value=60, step=5)
     mes=st.selectbox("Mês",meses_disp,index=len(meses_disp)-1,format_func=lambda x:MESES[x])
     inicio_padrao=pd.Timestamp(2026,mes,1).date(); fim_padrao=pd.Timestamp(2026,mes,monthrange(2026,mes)[1]).date()
     periodo=st.date_input("Período",value=(inicio_padrao,fim_padrao),min_value=inicio_padrao,max_value=fim_padrao,format="DD/MM/YYYY")
@@ -34,12 +65,15 @@ with st.sidebar:
 ini=pd.Timestamp(periodo[0] if isinstance(periodo,(tuple,list)) else periodo); fim=pd.Timestamp(periodo[-1] if isinstance(periodo,(tuple,list)) else periodo)+pd.Timedelta(days=1)-pd.Timedelta(microseconds=1)
 d=d0[d0.REGIONAL_TURNO.isin(regs)&d0.PRX_DESCRICAO.isin(equipes)&d0.DATA_TURNO.between(ini,fim)].copy()
 
-# Primeiro início e último fim por equipe/dia; almoço: RV 1h, Morrinhos 1h12.
+if d.empty:
+    st.info("Não há registros de turnos para a seleção. Execute o atualizador atualizado para incluir as novas equipes.")
+    st.stop()
+# Primeiro início e último fim por equipe/dia; almoço das novas regionais ajustável no filtro.
 d["INICIO_EFETIVO"]=d[["HOST_VI_DT_INI_DESLOCAMENTO","HOST_VI_DT_INI_SERVICO"]].min(axis=1)
 d["FIM_EFETIVO"]=d[["HOST_VI_DT_FIM_SERVICO","HOST_VI_DT_FIM_DESLOCAMENTO"]].max(axis=1)
 diario=d.groupby(["REGIONAL_TURNO","PRX_DESCRICAO","DATA_TURNO"],as_index=False).agg(INICIO=("INICIO_EFETIVO","min"),FIM=("FIM_EFETIVO","max"),SS=("NR_OS","nunique"))
 diario=diario[diario.INICIO.dt.date.eq(diario.FIM.dt.date)].copy()
-diario["DESCONTO_ALMOCO"]=diario.REGIONAL_TURNO.map({"RIO VERDE":1.0,"MORRINHOS":1.2})
+diario["DESCONTO_ALMOCO"]=diario.REGIONAL_TURNO.map({"04.Rio Verde":1.0,"03.Morrinhos":1.2,"05.Iporá":almoco_novas/60,"06.Montes Belos":almoco_novas/60})
 diario["HORAS"]=[max((f-i).total_seconds()/3600-desc,0) for i,f,desc in zip(diario.INICIO,diario.FIM,diario.DESCONTO_ALMOCO)]
 resumo=diario.groupby(["REGIONAL_TURNO","PRX_DESCRICAO"],as_index=False).agg(Dias=("DATA_TURNO","nunique"),Horas=("HORAS","sum"),SS=("SS","sum")); resumo["Meta horas"]=resumo.Dias*8; resumo["Média diária"]=resumo.Horas/resumo.Dias.replace(0,pd.NA); resumo["Situação"]=resumo.apply(lambda r:"Dentro do esperado" if r.Horas>=r["Meta horas"] else "Abaixo do esperado",axis=1)
 atualizado=pd.to_datetime(d0.get("ATUALIZADO_EM",pd.Series(dtype=str)),errors="coerce").max()
