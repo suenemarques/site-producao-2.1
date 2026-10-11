@@ -60,6 +60,8 @@ def normalizar_regional(valor: object) -> str:
     # Une nomes da ODS (05.Iporá/06.Montes Belos) e do Excel de metas.
     texto = normalizar_texto(valor)
     texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto).strip()
+    if re.search(r"(?:^|\s)MONTES BELOS$", texto):
+        texto = "MONTES BELOS"
     nomes = {"RIO VERDE", "MORRINHOS", "IPORA", "MONTES BELOS"}
     return texto if texto in nomes else ""
 
@@ -154,6 +156,7 @@ def carregar_bases(
             texto_regional = producao[coluna_regional].fillna("").astype(str).str.strip().str.upper()
             texto_regional = texto_regional.str.normalize("NFKD").str.encode("ascii", errors="ignore").str.decode("ascii")
             texto_regional = texto_regional.str.replace(r"^\d+\s*[.\-]?\s*", "", regex=True).str.replace(r"\s+", " ", regex=True).str.strip()
+            texto_regional = texto_regional.str.replace(r"^.*\bMONTES BELOS$", "MONTES BELOS", regex=True)
             valida = texto_regional.isin(["RIO VERDE", "MORRINHOS", "IPORA", "MONTES BELOS"])
             vazia = producao["REGIONAL_PAINEL"].eq("")
             producao.loc[valida & vazia, "REGIONAL_PAINEL"] = texto_regional.loc[valida & vazia]
