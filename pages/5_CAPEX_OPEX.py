@@ -31,6 +31,22 @@ def quantidade_meta(serie):
     texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     return pd.to_numeric(texto, errors="coerce").fillna(0)
 
+
+def menu_completo(pagina_atual):
+    raiz = Path(__file__).resolve().parents[1]
+    paginas = [
+        ("app.py", "Produção", "📊"),
+        ("pages/2_Energia_CNR.py", "Energia CNR", "⚡"),
+        ("pages/3_Incremento.py", "Incremento", "📈"),
+        ("pages/4_MEPE.py", "MEPE", "🎯"),
+        ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
+        ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
+    ]
+    for caminho, titulo, icone in paginas:
+        if (raiz / caminho).is_file():
+            st.page_link(caminho, label=titulo, icon=icone,
+                         disabled=caminho == pagina_atual, width="stretch")
+
 st.set_page_config(page_title="CAPEX e OPEX",page_icon="💰",layout="wide")
 BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"capex_opex.parquet"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
@@ -47,11 +63,8 @@ d0=carregar()
 d0["REGIONAL"]=d0["REGIONAL"].map(regional_padrao)
 with st.sidebar:
     st.markdown("### 💰 CAPEX e OPEX"); st.caption("Custos por regional e equipe")
-    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
-    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯")]:
-        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
-    st.button("💰 CAPEX e OPEX",disabled=True,width="stretch")
-    if (BASE/"pages"/"6_Validacao_turnos.py").is_file(): st.page_link("pages/6_Validacao_turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
+    menu_completo("pages/5_CAPEX_OPEX.py")
+    st.markdown("---")
     st.markdown("---")
     regs=st.multiselect("Regional",list(REGIONAIS.values()),default=list(REGIONAIS.values()))
     meses=st.multiselect("Mês",sorted(d0.MES_REF.unique()),default=sorted(d0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
