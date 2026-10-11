@@ -1,14 +1,37 @@
+import re
+import unicodedata
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from auth_site import exigir_login, filtrar_por_acesso
-from tema_neon import aplicar_tema_neon, menu_lateral
+
+REGIONAIS = {"MORRINHOS": "03.Morrinhos", "RIO VERDE": "04.Rio Verde",
+             "IPORA": "05.Iporá", "MONTES BELOS": "06.Montes Belos"}
+
+def regional_padrao(valor):
+    texto = "" if pd.isna(valor) else str(valor).strip().upper()
+    texto = "".join(c for c in unicodedata.normalize("NFKD", texto)
+                    if not unicodedata.combining(c))
+    texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto)
+    texto = re.sub(r"[^A-Z0-9]+", " ", texto).strip()
+    for nome, rotulo in REGIONAIS.items():
+        if re.search(r"(?:^| )" + re.escape(nome) + r"(?: |$)", texto):
+            return rotulo
+    return texto
+
+def grupo_padrao(valor):
+    texto = "" if pd.isna(valor) else str(valor).strip().upper()
+    return {"AT":"A", "BT":"B", "GRUPO A":"A", "GRUPO B":"B",
+            "GRUPO IP":"IP"}.get(texto, texto)
+
+def quantidade_meta(serie):
+    texto = serie.fillna("").astype(str).str.strip()
+    virgula = texto.str.contains(",", regex=False)
+    texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    return pd.to_numeric(texto, errors="coerce").fillna(0)
 
 st.set_page_config(page_title="CAPEX e OPEX",page_icon="💰",layout="wide")
-aplicar_tema_neon()
-usuario = exigir_login()
 BASE=Path(__file__).resolve().parents[1]; ARQ=BASE/"dados"/"capex_opex.parquet"
 MESES={1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
 def moeda(v): return "R$ "+f"{v:,.2f}".replace(",","X").replace(".",",").replace("X",".")
@@ -21,15 +44,26 @@ if not ARQ.is_file(): st.error("Base CAPEX/OPEX não encontrada."); st.info("Exe
 def carregar():
     d=pd.read_parquet(ARQ); d["DT_CONCLUSAO"]=pd.to_datetime(d["DT_CONCLUSAO"],errors="coerce"); return d
 d0=carregar()
-d0=filtrar_por_acesso(d0,"REGIONAL",usuario["ACESSO"])
+d0["REGIONAL"]=d0["REGIONAL"].map(regional_padrao)
 with st.sidebar:
-    menu_lateral("capex")
-    st.caption("Somente equipes RIOF e MORF")
+    st.markdown("### 💰 CAPEX e OPEX"); st.caption("Custos por regional e equipe")
+    st.markdown('<a class="nav" href="/" target="_self">📊 Produção</a>',unsafe_allow_html=True)
+    for a,l,i in [("2_Energia_CNR.py","Energia CNR","⚡"),("3_Incremento.py","Incremento","📈"),("4_MEPE.py","MEPE","🎯")]:
+        if (BASE/"pages"/a).is_file(): st.page_link(f"pages/{a}",label=l,icon=i,width="stretch")
+    st.button("💰 CAPEX e OPEX",disabled=True,width="stretch")
+    if (BASE/"pages"/"6_Validacao_turnos.py").is_file(): st.page_link("pages/6_Validacao_turnos.py",label="Validação de Turnos",icon="🕒",width="stretch")
     st.markdown("---")
-    regs=st.multiselect("Regional",sorted(d0.REGIONAL.unique()),default=sorted(d0.REGIONAL.unique()))
+    regs=st.multiselect("Regional",list(REGIONAIS.values()),default=list(REGIONAIS.values()))
     meses=st.multiselect("Mês",sorted(d0.MES_REF.unique()),default=sorted(d0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
-    equipes=st.multiselect("Equipe",sorted(d0.EQUIPE.unique()),default=sorted(d0.EQUIPE.unique()))
+    equipes_disp=sorted(d0.loc[d0.REGIONAL.isin(regs), "EQUIPE"].dropna().unique())
+    equipes=st.multiselect("Equipe",equipes_disp,default=equipes_disp)
 d=d0[d0.REGIONAL.isin(regs)&d0.MES_REF.isin(meses)&d0.EQUIPE.isin(equipes)].copy()
+sem_base=[r for r in regs if r not in set(d0.REGIONAL)]
+if sem_base:
+    st.info("Sem lançamentos CAPEX/OPEX na base para: " + ", ".join(sem_base) + ". Para calcular, configure os preços e regras no atualizador.")
+if d.empty:
+    st.info("Não há lançamentos para a seleção.")
+    st.stop()
 tot=d.groupby("CLASSIFICACAO").VALOR.sum(); odi=float(tot.get("ODI",0)); odd=float(tot.get("ODD",0)); opex=float(tot.get("OPEX",0)); capex=odi+odd
 atualizado=pd.to_datetime(d0.get("ATUALIZADO_EM",pd.Series(dtype=str)),errors="coerce").max()
 st.title("CAPEX e OPEX"); st.caption(f"Período pela DT_CONCLUSAO · CAPEX = ODI + ODD · Dados atualizados em: {atualizado:%d/%m/%Y às %H:%M}" if pd.notna(atualizado) else "Período pela DT_CONCLUSAO · CAPEX = ODI + ODD")
