@@ -34,11 +34,6 @@ MESES = {
     5: "MAIO", 6: "JUNHO", 7: "JULHO", 8: "AGOSTO",
     9: "SETEMBRO", 10: "OUTUBRO", 11: "NOVEMBRO", 12: "DEZEMBRO",
 }
-REGIONAIS_PAINEL = ["MORRINHOS", "RIO VERDE", "IPORA", "MONTES BELOS"]
-ROTULOS_REGIONAIS = {
-    "MORRINHOS": "03.Morrinhos", "RIO VERDE": "04.Rio Verde",
-    "IPORA": "05.Iporá", "MONTES BELOS": "06.Montes Belos",
-}
 INDICADORES = ["FISCALIZACAO", "NORMALIZACAO", "FRAUDE", "DEFEITO"]
 ROTULOS = {
     "FISCALIZACAO": "Fiscalização",
@@ -62,35 +57,40 @@ def normalizar_texto(valor: object) -> str:
 
 
 def normalizar_regional(valor: object) -> str:
+    # Une nomes da ODS (05.Iporá/06.Montes Belos) e do Excel de metas.
     texto = normalizar_texto(valor)
-    texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto)
-    texto = re.sub(r"[^A-Z0-9]+", " ", texto).strip()
-    for nome in REGIONAIS_PAINEL:
-        if re.search(r"(?:^| )" + re.escape(nome) + r"(?: |$)", texto):
-            return nome
-    return ""
+    texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto).strip()
+    nomes = {"RIO VERDE", "MORRINHOS", "IPORA", "MONTES BELOS"}
+    return texto if texto in nomes else ""
 
 
-def classificar_regionais(producao: pd.DataFrame) -> pd.Series:
-    resultado = pd.Series("", index=producao.index, dtype=str)
-    # A REGIONAL da ODS reconhece as novas regionais mesmo com POLO diferente.
-    # Campos preparados pelo atualizador e POLO são alternativas para vazios.
-    for nome_coluna in ["REGIONAL", "REGIONAL_SITE", "POLO"]:
-        if nome_coluna in producao.columns:
-            identificada = producao[nome_coluna].map(normalizar_regional)
-            resultado = resultado.where(resultado.ne(""), identificada)
+def normalizar_servico(valor: object) -> str:
+    return re.sub(r"[^A-Z0-9]+", " ", normalizar_texto(valor)).strip()
+
+
+def formatar_duracao(inicio: pd.Series, fim: pd.Series) -> pd.Series:
+    """Retorna a diferença entre duas datas no formato HH:MM:SS."""
+    segundos = (fim - inicio).dt.total_seconds()
+    resultado = pd.Series("", index=inicio.index, dtype="object")
+    validos = segundos.notna() & segundos.ge(0)
+
+    def para_hhmmss(valor: float) -> str:
+        total = int(valor)
+        horas, resto = divmod(total, 3600)
+        minutos, segundos_restantes = divmod(resto, 60)
+        return f"{horas:02d}:{minutos:02d}:{segundos_restantes:02d}"
+
+    resultado.loc[validos] = segundos.loc[validos].map(para_hhmmss)
     return resultado
 
 
-def mes_meta_normalizado(valor: object) -> str:
-    texto = normalizar_texto(valor)
-    try:
-        numero = float(texto.replace(",", "."))
-        if numero.is_integer() and 1 <= numero <= 12:
-            return normalizar_texto(MESES[int(numero)])
-    except ValueError:
-        pass
-    for numero, nome in MESES.items():
-        nome_n = normalizar_texto(nome)
-        if texto == nome_n or texto == nome_n[:3]:
-            return nome_n
+def categorizar_servico_grupo_a(descricao: object, resultado: object) -> str:
+    servico = normalizar_servico(descricao)
+    resultado_n = normalizar_servico(resultado)
+    fiscalizacao = {"INSPECOES", "INSPECAO PERDAS AT BI OPAT"}
+    telemetria = {"MANUTENCAO CENTRO DE MEDICAO", "MANUTENCAO DE TELEMETRIA GRUPO A", "MANUTENCAO DE FRONTEIRA"}
+    anexo_comercial = {
+        "DESLIGAMENTO LIGACAO PROVISORIA GRUPO A", "CONEXAO GD GRUPO A",
+        "CONEXAO GD GRUPO A OLD PROCESS", "CONEXAO GD MICROGERACAO",
+        "DESLIGAMENTO DE UC GRUPO A", "DESLIGAMENTO DE UC GRUPO A A PEDIDO DA DISTRIBUIDORA",
+        "DESLIGAMENTO LIGACAO PROVISORIA", "INSPECAO DE UC GRUPO A",
