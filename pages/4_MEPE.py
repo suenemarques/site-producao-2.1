@@ -6,29 +6,49 @@ import plotly.express as px
 import streamlit as st
 
 
-REGIONAIS = {"MORRINHOS": "03.Morrinhos", "RIO VERDE": "04.Rio Verde",
-             "IPORA": "05.Iporá", "MONTES BELOS": "06.Montes Belos"}
+REGIONAIS = {
+    "MORRINHOS": "03.Morrinhos",
+    "RIO VERDE": "04.Rio Verde",
+    "IPORA": "05.Iporá",
+    "MONTES BELOS": "06.Montes Belos",
+}
+
 
 def regional_padrao(valor):
     texto = "" if pd.isna(valor) else str(valor).strip().upper()
-    texto = "".join(c for c in unicodedata.normalize("NFKD", texto)
-                    if not unicodedata.combining(c))
+    texto = "".join(
+        c for c in unicodedata.normalize("NFKD", texto)
+        if not unicodedata.combining(c)
+    )
     texto = re.sub(r"^\d+\s*[.\-]?\s*", "", texto)
     texto = re.sub(r"[^A-Z0-9]+", " ", texto).strip()
+
     for nome, rotulo in REGIONAIS.items():
         if re.search(r"(?:^| )" + re.escape(nome) + r"(?: |$)", texto):
             return rotulo
+
     return texto
+
 
 def grupo_padrao(valor):
     texto = "" if pd.isna(valor) else str(valor).strip().upper()
-    return {"AT":"A", "BT":"B", "GRUPO A":"A", "GRUPO B":"B",
-            "GRUPO IP":"IP"}.get(texto, texto)
+    return {
+        "AT": "A",
+        "BT": "B",
+        "GRUPO A": "A",
+        "GRUPO B": "B",
+        "GRUPO IP": "IP",
+    }.get(texto, texto)
+
 
 def quantidade_meta(serie):
     texto = serie.fillna("").astype(str).str.strip()
     virgula = texto.str.contains(",", regex=False)
-    texto.loc[virgula] = texto.loc[virgula].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    texto.loc[virgula] = (
+        texto.loc[virgula]
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
     return pd.to_numeric(texto, errors="coerce").fillna(0)
 
 
@@ -42,71 +62,348 @@ def menu_completo(pagina_atual):
         ("pages/5_CAPEX_OPEX.py", "CAPEX e OPEX", "💰"),
         ("pages/6_Validacao_turnos.py", "Validação de Turnos", "🕒"),
     ]
+
     for caminho, titulo, icone in paginas:
         if (raiz / caminho).is_file():
-            st.page_link(caminho, label=titulo, icon=icone,
-                         disabled=caminho == pagina_atual, width="stretch")
+            st.page_link(
+                caminho,
+                label=titulo,
+                icon=icone,
+                disabled=caminho == pagina_atual,
+                width="stretch",
+            )
+
 
 st.set_page_config(page_title="MEPE", page_icon="🎯", layout="wide")
+
 BASE = Path(__file__).resolve().parents[1]
 ARQ = BASE / "dados" / "mepe.parquet"
-MESES = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"}
+
+MESES = {
+    1: "Janeiro",
+    2: "Fevereiro",
+    3: "Março",
+    4: "Abril",
+    5: "Maio",
+    6: "Junho",
+    7: "Julho",
+    8: "Agosto",
+    9: "Setembro",
+    10: "Outubro",
+    11: "Novembro",
+    12: "Dezembro",
+}
+
 
 def numero(v, casas=2):
-    if pd.isna(v): return "Sem meta"
-    return f"{v:,.{casas}f}".replace(",","X").replace(".",",").replace("X",".")
+    if pd.isna(v):
+        return "Sem meta"
+
+    return (
+        f"{v:,.{casas}f}"
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
+
+
 def tema(fig, h=420):
-    fig.update_layout(height=h,paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",font_color="#CAD5E2",legend_title_text="",legend=dict(orientation="h",x=.5,xanchor="center",y=1.04,yanchor="bottom"),margin=dict(l=25,r=50,t=90,b=45))
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.10)",automargin=True)
-    fig.update_yaxes(gridcolor="rgba(148,163,184,.10)",automargin=True)
+    fig.update_layout(
+        height=h,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#CAD5E2",
+        legend_title_text="",
+        legend=dict(
+            orientation="h",
+            x=.5,
+            xanchor="center",
+            y=1.04,
+            yanchor="bottom",
+        ),
+        margin=dict(l=25, r=50, t=90, b=45),
+    )
+    fig.update_xaxes(
+        gridcolor="rgba(148,163,184,.10)",
+        automargin=True,
+    )
+    fig.update_yaxes(
+        gridcolor="rgba(148,163,184,.10)",
+        automargin=True,
+    )
     return fig
 
-st.markdown("""<style>.stApp{background:#07111F;color:#E8EEF6}[data-testid="stSidebar"]{background:#0B1728;border-right:1px solid #1E3047}[data-testid="stSidebarNav"]{display:none}.block-container{padding-top:1.5rem;max-width:1550px}div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{background:#0D1A2B;border:1px solid #20334A;border-radius:14px;padding:.5rem}.nav{display:block;padding:.55rem;margin:.25rem 0;border:1px solid #46556A;border-radius:.5rem;text-align:center;color:white!important;text-decoration:none!important}</style>""",unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <style>
+    .stApp{background:#07111F;color:#E8EEF6}
+    [data-testid="stSidebar"]{
+        background:#0B1728;
+        border-right:1px solid #1E3047
+    }
+    [data-testid="stSidebarNav"]{display:none}
+    .block-container{padding-top:1.5rem;max-width:1550px}
+    div[data-testid="stMetric"],div[data-testid="stPlotlyChart"]{
+        background:#0D1A2B;
+        border:1px solid #20334A;
+        border-radius:14px;
+        padding:.5rem
+    }
+    .nav{
+        display:block;
+        padding:.55rem;
+        margin:.25rem 0;
+        border:1px solid #46556A;
+        border-radius:.5rem;
+        text-align:center;
+        color:white!important;
+        text-decoration:none!important
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 if not ARQ.is_file():
-    st.error("Base MEPE não encontrada."); st.info("Execute o Atualizador Único V13 para gerar dados/mepe.parquet."); st.stop()
+    st.error("Base MEPE não encontrada.")
+    st.info(
+        "Execute o Atualizador Único V13 para gerar dados/mepe.parquet."
+    )
+    st.stop()
+
 
 @st.cache_data(ttl=900)
-def carregar(): return pd.read_parquet(ARQ)
+def carregar():
+    return pd.read_parquet(ARQ)
+
+
 df0 = carregar()
 df0["REGIONAL_MEPE"] = df0["REGIONAL_MEPE"].map(regional_padrao)
+
 with st.sidebar:
-    st.markdown("### 🎯 MEPE"); st.caption("Recuperação de Energia · Sul")
+    st.markdown("### 🎯 MEPE")
+    st.caption("Recuperação de Energia · Sul")
     menu_completo("pages/4_MEPE.py")
     st.markdown("---")
     st.markdown("---")
-    regs=st.multiselect("Regional",list(REGIONAIS.values()),default=list(REGIONAIS.values()))
-    meses=st.multiselect("Mês",sorted(df0.MES_REF.unique()),default=sorted(df0.MES_REF.unique()),format_func=lambda x:MESES[int(x)])
-    equipes_disp=sorted(df0.loc[df0.REGIONAL_MEPE.isin(regs), "PRX_DESCRICAO"].dropna().unique())
-    equipes=st.multiselect("Equipe",equipes_disp,default=equipes_disp)
-df=df0[df0.REGIONAL_MEPE.isin(regs)&df0.MES_REF.isin(meses)&df0.PRX_DESCRICAO.isin(equipes)].copy()
-atualizado=pd.to_datetime(df0.get("ATUALIZADO_EM",pd.Series(dtype=str)),errors="coerce").max()
-st.title("MEPE"); st.caption(f"{len(df):,.0f} combinações de equipe e mês filtradas · Dados atualizados em: {atualizado:%d/%m/%Y às %H:%M}" if pd.notna(atualizado) else f"{len(df):,.0f} combinações filtradas".replace(",","."))
+
+    regs = st.multiselect(
+        "Regional",
+        list(REGIONAIS.values()),
+        default=list(REGIONAIS.values()),
+    )
+
+    meses = st.multiselect(
+        "Mês",
+        sorted(df0.MES_REF.unique()),
+        default=sorted(df0.MES_REF.unique()),
+        format_func=lambda x: MESES[int(x)],
+    )
+
+    equipes_disp = sorted(
+        df0.loc[
+            df0.REGIONAL_MEPE.isin(regs),
+            "PRX_DESCRICAO",
+        ].dropna().unique()
+    )
+
+    equipes = st.multiselect(
+        "Equipe",
+        equipes_disp,
+        default=equipes_disp,
+    )
+
+df = df0[
+    df0.REGIONAL_MEPE.isin(regs)
+    & df0.MES_REF.isin(meses)
+    & df0.PRX_DESCRICAO.isin(equipes)
+].copy()
+
+atualizado = pd.to_datetime(
+    df0.get("ATUALIZADO_EM", pd.Series(dtype=str)),
+    errors="coerce",
+).max()
+
+st.title("MEPE")
+st.caption(
+    f"{len(df):,.0f} combinações de equipe e mês filtradas · "
+    f"Dados atualizados em: {atualizado:%d/%m/%Y às %H:%M}"
+    if pd.notna(atualizado)
+    else f"{len(df):,.0f} combinações filtradas".replace(",", ".")
+)
+
 if df.empty:
-    st.info("Não há registros MEPE para a seleção. Execute o atualizador atualizado.")
+    st.info(
+        "Não há registros MEPE para a seleção. "
+        "Execute o atualizador atualizado."
+    )
     st.stop()
+
 if df[["PONT_CNR", "PONT_INC", "PONT_TOTAL"]].isna().any().any():
-    st.warning("Há equipes/meses sem metas por equipe válidas. A pontuação total dessas linhas não está calculada; consulte a base abaixo.")
-ups,cnr,inc,total=[float(df[c].sum(min_count=1)) for c in ["PONT_UPS","PONT_CNR","PONT_INC","PONT_TOTAL"]]
-c1,c2,c3,c4=st.columns(4); c1.metric("Pontuação UPS",numero(ups)); c2.metric("Pontuação CNR",numero(cnr)); c3.metric("Pontuação Incremento",numero(inc)); c4.metric("Pontuação total",numero(total))
+    st.warning(
+        "Há equipes/meses sem metas por equipe válidas. "
+        "A pontuação total dessas linhas não está calculada; "
+        "consulte a base abaixo."
+    )
 
-long=df.melt(id_vars=["PRX_DESCRICAO","MES_REF"],value_vars=["PONT_UPS","PONT_CNR","PONT_INC"],var_name="Indicador",value_name="Pontos")
-long["Indicador"]=long["Indicador"].map({"PONT_UPS":"UPS","PONT_CNR":"CNR","PONT_INC":"Incremento"})
-equipe=long.groupby(["PRX_DESCRICAO","Indicador"],as_index=False).Pontos.sum()
-fig=px.bar(equipe,x="PRX_DESCRICAO",y="Pontos",color="Indicador",barmode="stack",text_auto=".1f",title="Pontuação MEPE por equipe",color_discrete_map={"UPS":"#38BDF8","CNR":"#F59E0B","Incremento":"#34D399"})
-fig.update_traces(textposition="auto",cliponaxis=False); st.plotly_chart(tema(fig,500),width="stretch")
+ups, cnr, inc, total = [
+    float(df[c].sum(min_count=1))
+    for c in ["PONT_UPS", "PONT_CNR", "PONT_INC", "PONT_TOTAL"]
+]
 
-a,b=st.columns(2)
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Pontuação UPS", numero(ups))
+c2.metric("Pontuação CNR", numero(cnr))
+c3.metric("Pontuação Incremento", numero(inc))
+c4.metric("Pontuação total", numero(total))
+
+long = df.melt(
+    id_vars=["PRX_DESCRICAO", "MES_REF"],
+    value_vars=["PONT_UPS", "PONT_CNR", "PONT_INC"],
+    var_name="Indicador",
+    value_name="Pontos",
+)
+
+long["Indicador"] = long["Indicador"].map({
+    "PONT_UPS": "UPS",
+    "PONT_CNR": "CNR",
+    "PONT_INC": "Incremento",
+})
+
+equipe = long.groupby(
+    ["PRX_DESCRICAO", "Indicador"],
+    as_index=False,
+).Pontos.sum()
+
+fig = px.bar(
+    equipe,
+    x="PRX_DESCRICAO",
+    y="Pontos",
+    color="Indicador",
+    barmode="stack",
+    text_auto=".1f",
+    title="Pontuação MEPE por equipe",
+    color_discrete_map={
+        "UPS": "#38BDF8",
+        "CNR": "#F59E0B",
+        "Incremento": "#34D399",
+    },
+)
+
+fig.update_traces(textposition="auto", cliponaxis=False)
+st.plotly_chart(tema(fig, 500), width="stretch")
+
+a, b = st.columns(2)
+
 with a:
-    mensal=df.groupby("MES_REF",as_index=False)[["PONT_UPS","PONT_CNR","PONT_INC"]].sum().melt("MES_REF",var_name="Indicador",value_name="Pontos")
-    mensal["Mês"]=mensal.MES_REF.map(MESES); mensal["Indicador"]=mensal.Indicador.map({"PONT_UPS":"UPS","PONT_CNR":"CNR","PONT_INC":"Incremento"})
-    fig=px.line(mensal,x="Mês",y="Pontos",color="Indicador",markers=True,text="Pontos",title="Evolução mensal da pontuação")
-    fig.update_traces(texttemplate="%{text:.1f}",textposition="top center"); st.plotly_chart(tema(fig),width="stretch")
+    mensal = (
+        df.groupby("MES_REF", as_index=False)[
+            ["PONT_UPS", "PONT_CNR", "PONT_INC"]
+        ]
+        .sum()
+        .melt(
+            "MES_REF",
+            var_name="Indicador",
+            value_name="Pontos",
+        )
+    )
+
+    mensal["Mês"] = mensal.MES_REF.map(MESES)
+    mensal["Indicador"] = mensal.Indicador.map({
+        "PONT_UPS": "UPS",
+        "PONT_CNR": "CNR",
+        "PONT_INC": "Incremento",
+    })
+
+    fig = px.line(
+        mensal,
+        x="Mês",
+        y="Pontos",
+        color="Indicador",
+        markers=True,
+        text="Pontos",
+        title="Evolução mensal da pontuação",
+    )
+
+    fig.update_traces(
+        texttemplate="%{text:.1f}",
+        textposition="top center",
+    )
+    st.plotly_chart(tema(fig), width="stretch")
+
 with b:
-    energia=df.groupby("PRX_DESCRICAO",as_index=False)[["REAL_CNR_KWH","REAL_INC_KWH"]].sum().melt("PRX_DESCRICAO",var_name="Indicador",value_name="kWh")
-    energia["MWh"]=energia["kWh"]/1000; energia["Indicador"]=energia.Indicador.map({"REAL_CNR_KWH":"CNR","REAL_INC_KWH":"Incremento"})
-    fig=px.bar(energia,x="PRX_DESCRICAO",y="MWh",color="Indicador",barmode="group",text_auto=".2f",title="Energia por equipe (MWh)")
-    fig.update_traces(textposition="auto",cliponaxis=False); st.plotly_chart(tema(fig),width="stretch")
+    energia = (
+        df.groupby("PRX_DESCRICAO", as_index=False)[
+            ["REAL_CNR_KWH", "REAL_INC_KWH"]
+        ]
+        .sum()
+        .melt(
+            "PRX_DESCRICAO",
+            var_name="Indicador",
+            value_name="kWh",
+        )
+    )
+
+    energia["MWh"] = energia["kWh"] / 1000
+    energia["Indicador"] = energia.Indicador.map({
+        "REAL_CNR_KWH": "CNR",
+        "REAL_INC_KWH": "Incremento",
+    })
+
+    fig = px.bar(
+        energia,
+        x="PRX_DESCRICAO",
+        y="MWh",
+        color="Indicador",
+        barmode="group",
+        text_auto=".2f",
+        title="Energia por equipe (MWh)",
+    )
+
+    fig.update_traces(textposition="auto", cliponaxis=False)
+    st.plotly_chart(tema(fig), width="stretch")
+
+
+# ADICIONADO: classificação por frente, por equipe e mês.
+# Utiliza os pontos existentes sem recalcular metas ou pontuações.
+def classificar_frente(pontos, limite_a, limite_b, limite_c):
+    if pd.isna(pontos):
+        return "Sem meta"
+    if pontos >= limite_a:
+        return "Classe A"
+    if pontos >= limite_b:
+        return "Classe B"
+    if pontos >= limite_c:
+        return "Classe C"
+    return "Classe D"
+
+
+df["CLASSE_UPS"] = df["PONT_UPS"].apply(
+    lambda pontos: classificar_frente(pontos, 20, 15.2, 8.2)
+)
+
+df["CLASSE_CNR"] = df["PONT_CNR"].apply(
+    lambda pontos: classificar_frente(pontos, 30, 22.8, 12)
+)
+
+df["CLASSE_INC"] = df["PONT_INC"].apply(
+    lambda pontos: classificar_frente(pontos, 50, 37.5, 20)
+)
+
 
 st.subheader("Base de validação MEPE")
-st.dataframe(df.sort_values(["MES_REF","PRX_DESCRICAO"]),width="stretch",hide_index=True)
-st.download_button("Baixar validação MEPE",df.to_csv(index=False,sep=";").encode("utf-8-sig"),"validacao_mepe.csv","text/csv",width="stretch")
+
+st.dataframe(
+    df.sort_values(["MES_REF", "PRX_DESCRICAO"]),
+    width="stretch",
+    hide_index=True,
+)
+
+st.download_button(
+    "Baixar validação MEPE",
+    df.to_csv(index=False, sep=";").encode("utf-8-sig"),
+    "validacao_mepe.csv",
+    "text/csv",
+    width="stretch",
+)
